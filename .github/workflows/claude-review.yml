@@ -1,0 +1,44 @@
+name: Homik — Claude Code Review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # Skip draft PRs — only run when marked ready for review
+    if: github.event.pull_request.draft == false
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are reviewing a pull request for homik, a household inventory PWA.
+            Stack: FastAPI + SQLModel backend, React (Vite) PWA frontend, PostgreSQL via Neon.
+            The developer is a self-taught career changer actively learning — treat this as a
+            learning-focused review, not just a bug check.
+
+            Review for:
+            - Logic errors and unhandled edge cases
+            - Missing input validation
+            - Security issues — especially queries not scoped to household_id (multi-household data isolation is critical)
+            - Anything that would break the mobile/PWA experience
+
+            Also comment on:
+            - Code style and Python/TS best practices worth knowing
+            - Cleaner or more idiomatic ways to write something, with a brief explanation of why
+            - Anything the developer should understand about the patterns they've used
+
+            Be encouraging and explain your reasoning — the goal is learning, not just finding faults.
+            Skip pure style nits that Ruff handles automatically.
+            Post inline comments on specific lines. End with a short summary paragraph.
