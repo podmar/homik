@@ -1,0 +1,33 @@
+{
+  // Python
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+
+  // TypeScript / React (for later)
+  "[typescript]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // Ruff extension
+  "ruff.enable": true,
+
+  // Pyright — type checking (replaces Pylance type mode)
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.inlayHints.variableTypes": true,
+  "python.analysis.inlayHints.functionReturnTypes": true,
+  "python.analysis.autoFormatStrings": true,
+
+  // Let VS Code detect the venv automatically
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python"
+}

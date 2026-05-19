@@ -5,3 +5,65 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+extend-select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "I",      # isort — import ordering
+    "N",      # PEP8 naming conventions
+    "UP",     # pyupgrade — modern syntax
+    "ANN",    # type annotations enforced
+    "ASYNC",  # async/await correctness
+    "S",      # bandit — security issues
+    "B",      # bugbear — common bug patterns
+    "A",      # misuse of Python builtins
+    "C4",     # comprehension best practices
+    "T20",    # no print statements
+    "PT",     # pytest best practices
+    "SIM",    # simplification hints
+    "PTH",    # use pathlib over os.path
+    "FAST",   # FastAPI-specific rules
+    "PERF",   # performance checks
+    "RUF",    # ruff-specific rules
+]
+
+ignore = [
+    "ANN101", # no type for self — unnecessary
+    "ANN102", # no type for cls — unnecessary
+    "E501",   # line too long — formatter handles this
+    "S311",   # pseudo-random ok for non-crypto use
+    "TRY003", # long exception messages ok
+    "EM101",  # string literals in exceptions ok
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101",    # asserts fine in pytest
+    "S105",    # hardcoded passwords ok in tests
+    "S106",
+    "PLR2004", # magic values ok in tests
+    "SLF001",  # private access ok in tests
+    "ANN",     # no annotations needed in tests
+    "ARG001",  # unused args ok (fixtures)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
