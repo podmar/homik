@@ -23,7 +23,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment"
+            --allowedTools "mcp__github__create_pending_pull_request_review,mcp__github__add_pull_request_review_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff"
             --model "claude-sonnet-4-5"
           show_full_output: true
           prompt: |
@@ -32,17 +32,23 @@ jobs:
             The developer is a self-taught career changer actively learning — treat this as a
             learning-focused review, not just a bug check.
 
+            Follow these steps:
+            1. Use `mcp__github__create_pending_pull_request_review` to begin a pending review
+            2. Use `mcp__github__get_pull_request_diff` to understand the changes and line numbers
+            3. Use `mcp__github__add_pull_request_review_comment_to_pending_review` for specific line feedback
+            4. Use `mcp__github__submit_pending_pull_request_review` with event type "COMMENT" to publish
+
             Review for:
             - Logic errors and unhandled edge cases
             - Missing input validation
-            - Security issues — especially queries not scoped to household_id (multi-household data isolation is critical)
+            - Security issues — especially queries not scoped to household_id
             - Anything that would break the mobile/PWA experience
-
-            Also comment on:
             - Code style and Python/TS best practices worth knowing
-            - Cleaner or more idiomatic ways to write something, with a brief explanation of why
-            - Anything the developer should understand about the patterns they've used
+            - Cleaner or more idiomatic patterns, with explanation of why
 
             Be encouraging and explain your reasoning — the goal is learning, not just finding faults.
             Skip pure style nits that Ruff handles automatically.
-            Post inline comments on specific lines. End with a short summary paragraph.
+
+            After submitting the review, post a separate PR comment using
+            `mcp__github__create_issue_comment` with the total cost of this review.
+            Format it as: 💰 Review cost: $X.XX
