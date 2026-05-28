@@ -22,6 +22,8 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-sonnet-4-5
+          show_full_output: true
           prompt: |
             You are reviewing a pull request for homik, a household inventory PWA.
             Stack: FastAPI + SQLModel backend, React (Vite) PWA frontend, PostgreSQL via Neon.
