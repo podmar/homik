@@ -3,7 +3,7 @@ name: Homik — Claude Code Review
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, ready_for_review]
 
 jobs:
   review:
@@ -23,20 +23,20 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: |
-            --allowedTools "mcp__github__create_pending_pull_request_review,mcp__github__add_pull_request_review_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff"
+            --allowedTools "mcp__github__create_pending_pull_request_review,mcp__github__add_comment_to_pending_review,mcp__github__submit_pending_pull_request_review,mcp__github__get_pull_request_diff,mcp__github__add_issue_comment"
             --model "claude-sonnet-4-5"
           show_full_output: true
           prompt: |
-            You are reviewing a pull request for homik, a household inventory PWA.
+            You are reviewing pull request #${{ github.event.pull_request.number }} in ${{ github.repository }}.
             Stack: FastAPI + SQLModel backend, React (Vite) PWA frontend, PostgreSQL via Neon.
             The developer is a self-taught career changer actively learning — treat this as a
             learning-focused review, not just a bug check.
 
             Follow these steps:
-            1. Use `mcp__github__create_pending_pull_request_review` to begin a pending review
-            2. Use `mcp__github__get_pull_request_diff` to understand the changes and line numbers
-            3. Use `mcp__github__add_pull_request_review_comment_to_pending_review` for specific line feedback
-            4. Use `mcp__github__submit_pending_pull_request_review` with event type "COMMENT" to publish
+            1. Use mcp__github__create_pending_pull_request_review to begin a pending review
+            2. Use mcp__github__get_pull_request_diff to get the changes
+            3. Use mcp__github__add_comment_to_pending_review for specific line feedback
+            4. Use mcp__github__submit_pending_pull_request_review with event type "COMMENT" to publish
 
             Review for:
             - Logic errors and unhandled edge cases
@@ -50,5 +50,5 @@ jobs:
             Skip pure style nits that Ruff handles automatically.
 
             After submitting the review, post a separate PR comment using
-            `mcp__github__create_issue_comment` with the total cost of this review.
+            `mcp__github__add_issue_comment` with the total cost of this review.
             Format it as: 💰 Review cost: $X.XX
