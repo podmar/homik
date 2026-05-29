@@ -7,10 +7,18 @@ from sqlmodel import SQLModel
 
 load_dotenv()
 
-DATABASE_URL = os.environ["DATABASE_URL"]
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError(
+        "DATABASE_URL environment variable is required. "
+        "See .env.example for setup instructions."
+    )
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+engine = create_async_engine(
+    DATABASE_URL, echo=os.environ.get("ENVIRONMENT") == "development"
+)
 
+# keeps objects usable after commit (relevant for async sessions)
 _session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
