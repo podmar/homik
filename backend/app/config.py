@@ -15,4 +15,8 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    # database_url does not have a default value, so if it's missing from the environment variables or .env file,
+    # Pydantic will raise a validation error here, which is desirable to catch configuration issues
+    # The type ignore below is for static type checkers (e.g., mypy) because 'database_url' has no default value,
+    # but this is safe since Pydantic will enforce its presence at runtime.
     return Settings()  # type: ignore[call-arg]
