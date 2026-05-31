@@ -8,7 +8,7 @@ dependencies = [
     "fastapi[standard]>=0.115",
     "sqlmodel>=0.0.22",
     "asyncpg>=0.30",
-    "python-dotenv>=1.0",
+    "pydantic-settings>=2.14.1",
 ]
 [tool.ruff]
 target-version = "py313"

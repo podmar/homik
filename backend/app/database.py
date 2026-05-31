@@ -1,22 +1,15 @@
-import os
 from collections.abc import AsyncGenerator
 
-from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 
-load_dotenv()
+from .config import get_settings
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError(
-        "DATABASE_URL environment variable is required. "
-        "See .env.example for setup instructions."
-    )
+settings = get_settings()
 
-engine = create_async_engine(
-    DATABASE_URL, echo=os.environ.get("ENVIRONMENT") == "development"
-)
+DATABASE_URL = settings.database_url.get_secret_value()
+
+engine = create_async_engine(DATABASE_URL, echo=settings.environment == "development")
 
 # keeps objects usable after commit (relevant for async sessions)
 _session_factory = async_sessionmaker(engine, expire_on_commit=False)
