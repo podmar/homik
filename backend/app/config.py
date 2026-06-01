@@ -8,7 +8,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
     # no default value for database_url, it must be provided via environment variable or .env file
     database_url: SecretStr = Field(
-        description="Database URL in the format: postgresql://user:password@host:port/database",
+        description="Database URL in the format: postgresql+asyncpg://user:password@host:port/database",
+    )
+    secret_key: SecretStr = Field(
+        description="JWT signing secret — generate with: openssl rand -hex 32",
     )
     environment: str = "development"
 
