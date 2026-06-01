@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     secret_key: SecretStr = Field(
         description="JWT signing secret — generate with: openssl rand -hex 32",
     )
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    frontend_url: str = "http://localhost:5173"
+    off_base_url: str = "https://world.openfoodfacts.org/api/v0"
     environment: str = "development"
 
 

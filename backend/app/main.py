@@ -3,10 +3,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+import app.models
 from app.auth.backend import auth_backend
 from app.auth.users import fastapi_users
 from app.database import create_db_and_tables
-import app.models  # noqa: F401 — ensures all table models are registered before create_all
 from app.models.user import UserCreate, UserRead
 from app.routers import household
 
