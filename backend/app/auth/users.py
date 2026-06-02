@@ -43,7 +43,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # household creation fails for any reason, we delete the orphaned user
         # so the DB is left in a consistent state.
         try:
-            household = Household(name=f"{user.email.split('@')[0]}'s household")
+            prefix = user.email.split("@", 1)[0].strip() or "User"
+            household = Household(name=f"{prefix}'s household")
             self.session.add(household)
             await self.session.flush()
             user.household_id = household.id
