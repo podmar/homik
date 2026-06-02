@@ -38,15 +38,20 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     async def on_after_register(
         self, user: User, request: Request | None = None
     ) -> None:
-        # Create a household and assign it to the new user in one transaction.
-        # flush() writes the household row and generates its ID without
-        # committing, so both changes land together in a single commit.
-        household = Household(name=f"{user.email.split('@')[0]}'s household")
-        self.session.add(household)
-        await self.session.flush()
-        user.household_id = household.id
-        self.session.add(user)
-        await self.session.commit()
+        # FastAPI Users commits the user row before calling this hook, so true
+        # atomicity isn't possible. We use a compensating transaction: if
+        # household creation fails for any reason, we delete the orphaned user
+        # so the DB is left in a consistent state.
+        try:
+            household = Household(name=f"{user.email.split('@')[0]}'s household")
+            self.session.add(household)
+            await self.session.flush()
+            user.household_id = household.id
+            self.session.add(user)
+            await self.session.commit()
+        except Exception:
+            await self.user_db.delete(user)
+            raise
 
 
 async def get_user_manager(
