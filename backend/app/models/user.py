@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
+import sqlalchemy as sa
 from fastapi_users import schemas
 from sqlmodel import Field, SQLModel
 
@@ -18,11 +19,13 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True)
     is_superuser: bool = Field(default=False)
     is_verified: bool = Field(default=False)
-    # Nullable until the on_after_register hook creates and assigns a household.
     household_id: int | None = Field(
-        default=None, foreign_key="household.id", index=True
+        default=None, foreign_key="households.id", index=True
     )
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=sa.Column(sa.DateTime(timezone=True), nullable=False),
+    )
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
