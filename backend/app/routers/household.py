@@ -10,19 +10,21 @@ from app.models.user import User
 
 router = APIRouter(prefix="/household", tags=["household"])
 
-CurrentUser = Annotated[User, Depends(current_active_user)]
-DBSession = Annotated[AsyncSession, Depends(get_session)]
-
 
 @router.get("/me")
 async def get_my_household(
-    user: CurrentUser,
-    session: DBSession,
+    user: Annotated[User, Depends(current_active_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> Household:
     if user.household_id is None:
-        raise HTTPException(status_code=404, detail="No household assigned to this user")
+        raise HTTPException(
+            status_code=404, detail="No household assigned to this user"
+        )
     household = await session.get(Household, user.household_id)
     if household is None:
         # Shouldn't happen if FKs are enforced, but guards against stale data.
-        raise HTTPException(status_code=404, detail="Household not found")
+        raise HTTPException(
+            status_code=500,
+            detail="Household reference is invalid. Please contact support.",
+        )
     return household
