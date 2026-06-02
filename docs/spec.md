@@ -168,10 +168,38 @@ Plus a nav link to **Expiring Soon**.
 ## 6. Auth + Household Management
 
 - Registration creates a new user + new household
-- Invite flow (v2): for now, household members are added manually via admin or shared invite link (simple implementation TBD)
 - JWT tokens via FastAPI Users
 - Protected endpoints require valid token
 - All data queries scoped to `household_id` — users never see other households' data
+
+### Invite flow (v2)
+
+Registration forks into two paths depending on whether an invite token is present:
+
+1. **No token** — creates a new `Household`, assigns it to the new user (current v1 behaviour)
+2. **With token** — redeems the invite, assigns the existing `Household` to the new user instead
+
+**Data model addition:** `HouseholdInvite` table
+
+| Field | Type | Notes |
+|---|---|---|
+| id | int | Primary key |
+| household_id | int | FK → Household |
+| token | str | Unique, URL-safe random string |
+| created_by | uuid | FK → User (who generated the invite) |
+| expires_at | datetime | Short-lived — suggest 48 hours |
+| used_at | datetime | Nullable; set on redemption to prevent reuse |
+
+**Flow:**
+1. Existing household member calls `POST /household/invite` → creates a `HouseholdInvite` row, returns a link containing the token
+2. New user registers via `POST /auth/register` with the token in the request body
+3. `on_after_register` hook in `UserManager` checks for the token: if valid and unexpired, sets `household_id` to the invite's household and marks `used_at`; otherwise creates a new household as normal
+
+**Notes:**
+- Tokens are single-use (`used_at` check prevents replay)
+- Expired or already-used tokens fall back to creating a new household — or return a 400, TBD
+- No email sending in v2; the link is shared manually (copy/paste or messaging app)
+- `User.household_id` is already nullable in the current model, so no schema migration needed for the User table
 
 ---
 
@@ -248,7 +276,7 @@ Plus a nav link to **Expiring Soon**.
 | Frontend | React PWA (Vite) | Known stack, mobile-friendly, installable |
 | Barcode scanning | ZXing-js | Browser-based, no native app needed |
 | Image upload | Not in v1 | Unnecessary complexity |
-| Multi-household user | One household per user | Simpler for v1 |
+| Multi-household user | One household per user | Simpler for v1; invite flow in v2 handles joining an existing household without changing this constraint |
 | Location default | Last used location | Lowest friction for scanning session |
 
 ---
@@ -263,7 +291,7 @@ Plus a nav link to **Expiring Soon**.
 - Recipe suggestions
 - Image upload
 - Multi-household per user
-- Invite flow (manual household member addition for now)
+- Invite flow UI (backend design is specced in section 6, build in v2)
 
 ---
 

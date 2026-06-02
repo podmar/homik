@@ -8,8 +8,15 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
     # no default value for database_url, it must be provided via environment variable or .env file
     database_url: SecretStr = Field(
-        description="Database URL in the format: postgresql://user:password@host:port/database",
+        description="Database URL in the format: postgresql+asyncpg://user:password@host:port/database",
     )
+    secret_key: SecretStr = Field(
+        description="JWT signing secret — generate with: openssl rand -hex 32",
+    )
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    frontend_url: str = "http://localhost:5173"
+    off_base_url: str = "https://world.openfoodfacts.org/api/v0"
     environment: str = "development"
 
 
