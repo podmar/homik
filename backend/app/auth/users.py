@@ -46,9 +46,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             prefix = user.email.split("@", 1)[0].strip() or "User"
             household = Household(name=f"{prefix}'s household")
             self.session.add(household)
-            await self.session.flush()
-            user.household_id = household.id
-            self.session.add(user)
+            await self.session.flush()  # writes household row and populates household.id
+            user.household_id = household.id  # session tracks this change automatically
             await self.session.commit()
         except Exception:
             await self.user_db.delete(user)
