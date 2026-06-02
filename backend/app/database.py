@@ -7,10 +7,7 @@ from .config import get_settings
 
 settings = get_settings()
 
-_raw_url = settings.database_url.get_secret_value()
-# Neon (and most hosted Postgres providers) use sslmode=require in their
-# connection strings. asyncpg doesn't accept sslmode — it uses ssl=require.
-DATABASE_URL = _raw_url.replace("sslmode=require", "ssl=require")
+DATABASE_URL = settings.database_url.get_secret_value()
 
 engine = create_async_engine(DATABASE_URL, echo=settings.environment == "development")
 
