@@ -9,7 +9,9 @@ settings = get_settings()
 
 DATABASE_URL = settings.database_url.get_secret_value()
 
-engine = create_async_engine(DATABASE_URL, echo=settings.environment == "development")
+# pool_pre_ping=True tests each connection before use and reconnects if Neon
+# closed it due to inactivity (Neon drops idle connections after ~5 minutes).
+engine = create_async_engine(DATABASE_URL, echo=settings.environment == "development", pool_pre_ping=True)
 
 # keeps objects usable after commit (relevant for async sessions)
 _session_factory = async_sessionmaker(engine, expire_on_commit=False)
