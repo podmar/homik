@@ -19,7 +19,9 @@ class User(SQLModel, table=True):
     is_superuser: bool = Field(default=False)
     is_verified: bool = Field(default=False)
     # Nullable until the on_after_register hook creates and assigns a household.
-    household_id: int | None = Field(default=None, foreign_key="household.id")
+    household_id: int | None = Field(
+        default=None, foreign_key="household.id", index=True
+    )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
