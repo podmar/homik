@@ -19,6 +19,13 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Read project conventions
+        id: conventions
+        run: |
+          echo "CLAUDE_MD<<EOF" >> $GITHUB_OUTPUT
+          cat CLAUDE.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -29,26 +36,31 @@ jobs:
           prompt: |
             You are reviewing pull request #${{ github.event.pull_request.number }} in ${{ github.repository }}.
             Stack: FastAPI + SQLModel backend, React (Vite) PWA frontend, PostgreSQL via Neon.
-            The developer is a self-taught career changer actively learning — treat this as a
-            learning-focused review, not just a bug check.
+            The developer is a self-taught career changer actively learning — explain your reasoning
+            on non-obvious findings so they understand the why, not just the what.
+
+            Project conventions (from CLAUDE.md):
+            ${{ steps.conventions.outputs.CLAUDE_MD }}
 
             Follow these steps:
             1. Use mcp__github__create_pending_pull_request_review to begin a pending review
             2. Use mcp__github__get_pull_request_diff to get the changes
-            3. Use mcp__github__add_comment_to_pending_review for specific line feedback
-            4. Use mcp__github__submit_pending_pull_request_review with event type "COMMENT" to publish
+            3. Verify findings against the actual diff before commenting — don't flag something as
+               missing if it's already present
+            4. Use mcp__github__add_comment_to_pending_review for inline findings
+            5. Use mcp__github__submit_pending_pull_request_review with event type "COMMENT" to publish
 
             Review for:
-            - Logic errors and unhandled edge cases
-            - Missing input validation
-            - Security issues — especially queries not scoped to household_id
-            - Anything that would break the mobile/PWA experience
-            - Code style and Python/TS best practices worth knowing
-            - Cleaner or more idiomatic patterns, with explanation of why
+            - Security issues — especially data not scoped to household_id (critical)
+            - Logic errors, missing DB constraints, unhandled edge cases (critical)
+            - Missing input validation at API boundaries (important)
+            - Anything that would break the mobile/PWA experience (important)
+            - More idiomatic FastAPI/SQLModel/Python patterns (minor)
 
-            Be encouraging and explain your reasoning — the goal is learning, not just finding faults.
             Skip pure style nits that Ruff handles automatically.
 
-            After submitting the review, post a separate PR comment using
-            `mcp__github__add_issue_comment` with the total cost of this review.
-            Format it as: 💰 Review cost: $X.XX
+            After submitting the review, post a summary comment using `mcp__github__add_issue_comment`.
+            Keep it short — three sections max:
+            **Critical** (must fix before merge) — security bugs, data integrity issues
+            **Minor** (worth addressing) — improvements, suggestions
+            **Cost:** $X.XX
