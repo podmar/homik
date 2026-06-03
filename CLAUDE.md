@@ -93,6 +93,10 @@ No Alembic yet. Schema changes require dropping affected tables in the Neon cons
 
 Import `SQLAlchemyUserDatabase` directly from `fastapi_users_db_sqlalchemy`, not `fastapi_users.db`. The re-export in `fastapi_users.db` uses a `try/except` block that Pylance cannot statically trace, causing false unknown-symbol errors.
 
+## Developer environment
+
+Host machine: Apple M4 MacBook (ARM64, no Rosetta). Package manager: Homebrew. Shell: zsh. `gh` CLI is installed on the host — not inside the Claude Code container.
+
 ## CI
 
 A GitHub Actions workflow (`.github/workflows/claude-review.yml`) runs Claude Code review on every non-draft PR to `main`. It focuses on data isolation bugs, missing input validation, security issues, and learning-oriented feedback.
