@@ -11,6 +11,8 @@ class Item(SQLModel, table=True):
     household_id: int = Field(foreign_key="households.id", index=True)
     name: str
     barcode: str | None = Field(default=None, index=True)
+    brand: str | None = Field(default=None)
+    image_url: str | None = Field(default=None)
     # Nullable: category may be unknown if barcode lookup returns no result.
     category_id: int | None = Field(default=None, foreign_key="categories.id")
     # Nullable: defaults to last used location, which may not exist yet.

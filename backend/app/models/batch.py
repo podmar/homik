@@ -12,7 +12,11 @@ class Batch(SQLModel, table=True):
     quantity: int
     # Defaults to approximately +12 months from today.
     # Month + year precision only — the day component is not shown in the UI.
-    expiry_date: date = Field(default_factory=lambda: date.today() + timedelta(days=365))
+    expiry_date: date = Field(
+        default_factory=lambda: date.today() + timedelta(days=365)
+    )
+    # Nullable: defaults to last used location, which may not exist yet.
+    location_id: int | None = Field(default=None, foreign_key="locations.id")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=sa.Column(sa.DateTime(timezone=True), nullable=False),
