@@ -15,7 +15,7 @@ class Batch(SQLModel, table=True):
     expiry_date: date = Field(
         default_factory=lambda: date.today() + timedelta(days=365)
     )
-    # Nullable: defaults to last used location, which may not exist yet.
+    # Nullable: location is prefilled in the UI from the last batch, but may be unset on first use.
     location_id: int | None = Field(default=None, foreign_key="locations.id")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),

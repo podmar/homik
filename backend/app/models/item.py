@@ -15,8 +15,6 @@ class Item(SQLModel, table=True):
     image_url: str | None = Field(default=None)
     # Nullable: category may be unknown if barcode lookup returns no result.
     category_id: int | None = Field(default=None, foreign_key="categories.id")
-    # Nullable: defaults to last used location, which may not exist yet.
-    location_id: int | None = Field(default=None, foreign_key="locations.id")
     unit: str
     notes: str | None = None
     created_at: datetime = Field(
