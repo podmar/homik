@@ -20,6 +20,6 @@ if ! command -v gh &>/dev/null; then
 fi
 
 TITLE=$(head -1 "$DESC_FILE" | sed 's/^## //')
-BODY=$(cat "$DESC_FILE")
+BODY=$(tail -n +2 "$DESC_FILE")
 
 gh pr create --base main --title "$TITLE" --body "$BODY"
