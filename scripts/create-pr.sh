@@ -14,7 +14,7 @@ if [ ! -f "$DESC_FILE" ]; then
   exit 1
 fi
 
-if ! command -v gh &>/dev/null; then
+if ! command -v gh >/dev/null 2>&1; then
   echo "Error: gh CLI not installed. Run: brew install gh"
   exit 1
 fi
