@@ -11,7 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.backend import auth_backend
 from app.config import get_settings
 from app.database import get_session
+from app.models.category import Category
 from app.models.household import Household
+from app.models.location import Location
 from app.models.user import User
 
 
@@ -48,6 +50,8 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             self.session.add(household)
             await self.session.flush()  # writes household row and populates household.id
             user.household_id = household.id  # session tracks this change automatically
+            self.session.add(Location(household_id=household.id, name="Pantry"))
+            self.session.add(Category(household_id=household.id, name="Food"))
             await self.session.commit()
         except Exception:
             await self.user_db.delete(user)
