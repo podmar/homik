@@ -93,6 +93,13 @@ No Alembic yet. Schema changes require dropping affected tables in the Neon cons
 
 Import `SQLAlchemyUserDatabase` directly from `fastapi_users_db_sqlalchemy`, not `fastapi_users.db`. The re-export in `fastapi_users.db` uses a `try/except` block that Pylance cannot statically trace, causing false unknown-symbol errors.
 
+## Developer workflow scripts
+
+- `./scripts/create-pr.sh` — opens a PR from the current branch
+- `./scripts/fetch-pr-comments.sh` — fetches open PR review comments into `docs/pr-comments.md`
+- `/pr-description` — generates a PR description and saves to `docs/pr-description.md`
+- `/review-comments` — works through `docs/pr-comments.md` one comment at a time
+
 ## Developer environment
 
 Host machine: Apple M4 MacBook (ARM64, no Rosetta). Package manager: Homebrew. Shell: zsh. `gh` CLI is installed on the host — not inside the Claude Code container.
