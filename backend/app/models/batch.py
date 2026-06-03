@@ -8,6 +8,9 @@ class Batch(SQLModel, table=True):
     __tablename__ = "batches"  # type: ignore[assignment]
 
     id: int | None = Field(default=None, primary_key=True)
+    # Denormalized from Item for query-level household isolation — every batch query can filter
+    # directly on household_id without joining through items.
+    household_id: int = Field(foreign_key="households.id", index=True)
     item_id: int = Field(foreign_key="items.id", index=True)
     quantity: int
     # Defaults to approximately +12 months from today.
@@ -15,8 +18,7 @@ class Batch(SQLModel, table=True):
     expiry_date: date = Field(
         default_factory=lambda: date.today() + timedelta(days=365)
     )
-    # Nullable: location is prefilled in the UI from the last batch, but may be unset on first use.
-    location_id: int | None = Field(default=None, foreign_key="locations.id")
+    location_id: int = Field(foreign_key="locations.id")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=sa.Column(sa.DateTime(timezone=True), nullable=False),
