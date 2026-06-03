@@ -35,7 +35,7 @@ echo "Fetching comments for PR #$PR_NUMBER in $REPO..."
   if [ "$INLINE_COUNT" -gt 0 ]; then
     echo "## Inline Comments"
     echo ""
-    gh api "repos/$REPO/pulls/$PR_NUMBER/comments" --jq '.[] | "### \(.user.login) — \(.path) line \(.line // .original_line)\n\n\(.body)\n\n---\n"'
+    gh api "repos/$REPO/pulls/$PR_NUMBER/comments" --jq '.[] | "### \(.user.login) — \(.path) line \(.line // .original_line // "file-level")\n\n\(.body)\n\n---\n"'
   fi
 
   # General PR comments (top-level, not attached to a line)
