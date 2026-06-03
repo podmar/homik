@@ -6,6 +6,9 @@ from sqlmodel import Field, SQLModel
 
 class Item(SQLModel, table=True):
     __tablename__ = "items"  # type: ignore[assignment]
+    # NULL barcodes are exempt — PostgreSQL does not consider NULLs equal in unique constraints,
+    # so multiple items without a barcode in the same household are allowed.
+    __table_args__ = (sa.UniqueConstraint("household_id", "barcode", name="uq_item_household_barcode"),)
 
     id: int | None = Field(default=None, primary_key=True)
     household_id: int = Field(foreign_key="households.id", index=True)

@@ -12,7 +12,7 @@ class Batch(SQLModel, table=True):
     # directly on household_id without joining through items.
     household_id: int = Field(foreign_key="households.id", index=True)
     item_id: int = Field(foreign_key="items.id", index=True)
-    quantity: int
+    quantity: int = Field(sa_column=sa.Column(sa.Integer, sa.CheckConstraint("quantity > 0"), nullable=False))
     # Defaults to approximately +12 months from today.
     # Month + year precision only — the day component is not shown in the UI.
     expiry_date: date = Field(
