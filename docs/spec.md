@@ -99,24 +99,30 @@ The product — what something *is*, not how much you have.
 | household_id | int | FK → Household |
 | name | str | |
 | barcode | str | Optional, from scan |
+| brand | str | Optional, from Open Food Facts |
+| image_url | str | Optional, from Open Food Facts |
 | category_id | int | FK → Category |
-| location_id | int | FK → Location, editable |
 | unit | str | e.g. "pieces", "bottles", "kg" |
 | notes | str | Optional |
 | created_at | datetime | |
 | updated_at | datetime | |
 
+**Note:** `location_id` is not on Item — location is tracked per Batch, since the same product can be stored in multiple places at once.
+
 ### `Batch`
-One entry per purchase of an item. Holds quantity and expiry.
+One group of units sharing the same location and expiry date.
 | Field | Type | Notes |
 |---|---|---|
 | id | int | Primary key |
 | item_id | int | FK → Item |
+| location_id | int | FK → Location |
 | quantity | int | |
 | expiry_date | date | Month + year precision, defaults to +12 months |
 | created_at | datetime | |
 
-**Why Batch exists:** The same product (e.g. pasta) can be bought multiple times with different expiry dates. Each purchase is a separate batch.
+**Why Batch exists:** The same product can be bought multiple times with different expiry dates, and/or stored across multiple locations. Each unique combination of location + expiry = one batch.
+
+**Real-world example:** Buy 6 passatas → create two batches: `{quantity: 4, location: cellar, expiry: June 2027}` and `{quantity: 2, location: pantry, expiry: June 2027}`. Inventory view shows total = 6, broken down by location.
 
 **Alert logic:** If total quantity across all batches for an item = 0 → flag for shopping list (v2).
 
@@ -140,15 +146,16 @@ One entry per purchase of an item. Holds quantity and expiry.
 1. User taps **Scan** on home screen
 2. Last used location is prefilled
 3. Camera opens, user scans barcode (ZXing-js)
-4. App queries Open Food Facts → prefills name, category
-5. **If existing product:** show current batches + quantities, user can add new batch or adjust existing
+4. App queries Open Food Facts → prefills name, brand, image, category
+5. **If existing product:** show current batches + quantities (grouped by location), user can add new batch or adjust existing
 6. **If new product:** form shown with prefilled name/category, user enters quantity + unit, expiry defaults to current month + 12 months (month/year picker), all fields editable
-7. Save → written to DB
+7. **Split by location:** user can tap "Add another location" to create a second batch entry for the same purchase (e.g. 4 to cellar, 2 to pantry)
+8. Save → written to DB
 
 ### Flow 2: Inventory view
-1. List of all items with total quantity and location
+1. List of all items with total quantity across all locations
 2. Searchable/filterable by: name, location, expiry date
-3. Tap item → detail view showing all batches
+3. Tap item → detail view showing all batches (each with location, quantity, expiry)
 4. From detail: edit any field, adjust quantity per batch (+1 / -1 or type number)
 
 ### Flow 3: Expiring soon
@@ -275,9 +282,11 @@ Registration forks into two paths depending on whether an invite token is presen
 | Notifications | None in v1 | Filtered list in app; agent emails in v2 |
 | Frontend | React PWA (Vite) | Known stack, mobile-friendly, installable |
 | Barcode scanning | ZXing-js | Browser-based, no native app needed |
-| Image upload | Not in v1 | Unnecessary complexity |
+| Image upload | Not in v1 | Unnecessary complexity; image_url from OFF is sufficient |
 | Multi-household user | One household per user | Simpler for v1; invite flow in v2 handles joining an existing household without changing this constraint |
+| Location on Batch not Item | location_id on Batch | Same product can live in multiple locations (e.g. cellar + pantry); batch = unique combo of location + expiry |
 | Location default | Last used location | Lowest friction for scanning session |
+| brand + image_url on Item | Added in v1 | Single fields, zero complexity; brand disambiguates products; retrofitting requires migration |
 
 ---
 
@@ -289,7 +298,7 @@ Registration forks into two paths depending on whether an invite token is presen
 - Shopping list UI
 - Agent / email summaries
 - Recipe suggestions
-- Image upload
+- Image upload (image_url from Open Food Facts only)
 - Multi-household per user
 - Invite flow UI (backend design is specced in section 6, build in v2)
 
@@ -307,4 +316,4 @@ Registration forks into two paths depending on whether an invite token is presen
 
 ---
 
-*Last updated: May 2026. Built with FastAPI + SQLModel + React PWA.*
+*Last updated: June 2026. Built with FastAPI + SQLModel + React PWA.*

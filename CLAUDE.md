@@ -54,11 +54,12 @@ uv run pytest tests/path/to/test_file.py::test_name
 Household → User (many per household)
          → Location (e.g. Fridge, Cellar, Pantry — seeded on creation)
          → Category (e.g. Food, Cleaning — seeded on creation)
-         → Item (what a product *is*; has barcode, location, category)
-              → Batch (one per purchase; holds quantity + expiry date)
+         → Item (what a product *is*; has barcode, brand, image_url, category)
+              → Batch (one per unique location + expiry combo; holds quantity, location, expiry)
 ```
 
-- **Item** = the product definition. **Batch** = a specific purchase of that item with its own quantity and expiry.
+- **Item** = the product definition (name, barcode, brand, image_url from Open Food Facts, category, unit). No location — the same product can live in multiple places.
+- **Batch** = one group of units sharing the same location and expiry date. A purchase split across two locations creates two batches.
 - Expiry granularity is month + year only; defaults to +12 months from today.
 - `ShoppingListItem` model exists in v1 but has no UI — that's a v2 feature.
 
@@ -79,6 +80,18 @@ FastAPI Users with JWT tokens. Registration creates both a new User and a new Ho
 - Python 3.13, async throughout (asyncpg driver for Postgres).
 - Ruff enforces strict rules including mandatory type annotations (`ANN`) and no `print` statements (`T20`). Tests are exempt from annotations and security rules — see `pyproject.toml` for the full per-file ignore list.
 - `asyncio_mode = "auto"` is set in pytest — no need to mark async tests explicitly.
+
+### Datetime columns
+
+All `datetime` fields must use `sa_column=sa.Column(sa.DateTime(timezone=True))` — asyncpg rejects timezone-aware datetimes in `TIMESTAMP WITHOUT TIME ZONE` columns. Always use `datetime.now(UTC)` (never `datetime.utcnow()`).
+
+### Schema changes
+
+No Alembic yet. Schema changes require dropping affected tables in the Neon console and restarting the server to recreate them. Add Alembic before any production data exists.
+
+### fastapi-users imports
+
+Import `SQLAlchemyUserDatabase` directly from `fastapi_users_db_sqlalchemy`, not `fastapi_users.db`. The re-export in `fastapi_users.db` uses a `try/except` block that Pylance cannot statically trace, causing false unknown-symbol errors.
 
 ## CI
 
