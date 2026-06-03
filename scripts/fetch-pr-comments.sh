@@ -11,6 +11,7 @@
 set -euo pipefail
 
 OUTPUT="docs/pr-comments.md"
+mkdir -p "$(dirname "$OUTPUT")"  # Ensure parent directory exists
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "Error: gh CLI not installed. Run: brew install gh"
