@@ -121,7 +121,9 @@ One group of units sharing the same location and expiry date.
 | expiry_date | date | Stored as full date; UI shows month + year only. Defaults to +12 months |
 | created_at | datetime | |
 
-**Why Batch exists:** The same product can be bought multiple times with different expiry dates, and/or stored across multiple locations. Each unique combination of location + expiry = one batch.
+**Why Batch exists:** The same product can be bought multiple times with different expiry dates, and/or stored across multiple locations. Each unique combination of item + location + expiry = one batch. This is enforced by a DB unique constraint on `(item_id, location_id, expiry_date)`.
+
+**Merge on move:** When batches are moved to another location (via `DELETE /locations/{id}?move_to=`), if the target already has a batch for the same item + expiry date, the quantities are merged rather than creating a duplicate.
 
 **Real-world example:** Buy 6 passatas → create two batches: `{quantity: 4, location: cellar, expiry: June 2027}` and `{quantity: 2, location: pantry, expiry: June 2027}`. Inventory view shows total = 6, broken down by location.
 

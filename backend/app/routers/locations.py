@@ -93,20 +93,70 @@ async def delete_location(
     location_id: int,
     user: Annotated[User, Depends(current_active_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    move_to: int | None = None,
 ) -> None:
     if user.household_id is None:
         raise HTTPException(status_code=400, detail="No household assigned to this account")
+
     location = await session.get(Location, location_id)
     if location is None or location.household_id != user.household_id:
         raise HTTPException(status_code=404, detail="Location not found")
-    # Prevent deleting a location that has batches — would orphan inventory data.
-    in_use = (
-        await session.exec(select(Batch.id).where(Batch.location_id == location_id).limit(1))
-    ).first()
-    if in_use is not None:
+
+    # Cannot delete the last location — household would have nowhere to store batches.
+    location_count = len(
+        (await session.exec(
+            select(Location).where(Location.household_id == user.household_id)
+        )).all()
+    )
+    if location_count <= 1:
         raise HTTPException(
             status_code=409,
-            detail="Cannot delete a location that has batches",
+            detail="Cannot delete the only location in your household",
         )
+
+    has_batches = (
+        await session.exec(select(Batch.id).where(Batch.location_id == location_id).limit(1))
+    ).first()
+
+    if has_batches is not None:
+        if move_to is None:
+            raise HTTPException(
+                status_code=409,
+                detail="This location has batches. Provide ?move_to=<location_id> to move them to another location first.",
+            )
+        if move_to == location_id:
+            raise HTTPException(
+                status_code=400,
+                detail="move_to must be a different location",
+            )
+        target = await session.get(Location, move_to)
+        if target is None or target.household_id != user.household_id:
+            raise HTTPException(status_code=404, detail="Target location not found")
+
+        # Move all batches to the target location before deleting.
+        # If the target already has a batch for the same (item, expiry), merge by
+        # adding quantities rather than creating a duplicate — which would violate
+        # the unique constraint on (item_id, location_id, expiry_date).
+        batches = (
+            await session.exec(select(Batch).where(Batch.location_id == location_id))
+        ).all()
+        for batch in batches:
+            existing = (
+                await session.exec(
+                    select(Batch).where(
+                        Batch.item_id == batch.item_id,
+                        Batch.location_id == move_to,
+                        Batch.expiry_date == batch.expiry_date,
+                    )
+                )
+            ).first()
+            if existing is not None:
+                existing.quantity += batch.quantity
+                session.add(existing)
+                await session.delete(batch)
+            else:
+                batch.location_id = move_to
+                session.add(batch)
+
     await session.delete(location)
     await session.commit()
