@@ -60,7 +60,7 @@ Household → User (many per household)
 
 - **Item** = the product definition (name, barcode, brand, image_url from Open Food Facts, category, unit). No location — the same product can live in multiple places.
 - **Batch** = one group of units sharing the same location and expiry date. A purchase split across two locations creates two batches.
-- Expiry granularity is month + year only; defaults to +12 months from today.
+- Expiry is stored as a full `date` field; the UI will show month + year only. Defaults to +12 months from today.
 - `ShoppingListItem` model exists in v1 but has no UI — that's a v2 feature.
 
 ### Multi-household data isolation
@@ -89,6 +89,35 @@ All `datetime` fields must use `sa_column=sa.Column(sa.DateTime(timezone=True))`
 
 No Alembic yet. Schema changes require dropping affected tables in the Neon console and restarting the server to recreate them. Add Alembic before any production data exists.
 
+### SQLModel query conventions
+
+**`col()` for column expressions:** When using `.ilike()`, `.in_()`, `.desc()`, or `order_by()` on a model attribute, wrap it with `col()` from `sqlmodel`. Without it, Pyright resolves the attribute as a Python type (`str`, `int`, `date`) and flags the SQL method as unknown.
+
+```python
+from sqlmodel import col, select
+
+select(Item).where(col(Item.name).ilike(f"%{name}%"))
+select(Item).where(col(Item.id).in_(subquery))
+select(Batch).order_by(col(Batch.expiry_date))
+```
+
+**`AsyncSession` import:** Always import `AsyncSession` from `sqlmodel.ext.asyncio.session`, not from `sqlalchemy.ext.asyncio`. SQLAlchemy's version doesn't have `.exec()`. Also set `class_=AsyncSession` in `async_sessionmaker` so the session factory creates SQLModel sessions:
+
+```python
+from sqlmodel.ext.asyncio.session import AsyncSession
+_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+```
+
+### API endpoint conventions
+
+**Household isolation:** Every query must filter by `user.household_id`. Return 404 for both "not found" and "wrong household" — never 403. Returning 403 leaks whether an ID exists.
+
+**IntegrityError handling:** Let the DB enforce unique constraints rather than doing pre-check queries (race condition + extra round-trip). Catch `sqlalchemy.exc.IntegrityError` after `commit()`, call `session.rollback()`, and raise a 409. Do not attempt to introspect the underlying driver exception (`exc.orig.pgcode`, `isinstance(..., asyncpg.UniqueViolationError)`) — this is fragile across SQLAlchemy/asyncpg versions. Add a comment explaining why the broad catch is safe for that specific endpoint.
+
+**Response schemas:** Never return raw table models — they expose `household_id` and other internals. Always return a `*Read` schema that explicitly lists the fields the client should see.
+
+**PATCH pattern:** Use `data.model_dump(exclude_unset=True)` to only update fields explicitly sent in the request. This prevents overwriting existing values with `None` for fields the client didn't mention.
+
 ### fastapi-users imports
 
 Import `SQLAlchemyUserDatabase` directly from `fastapi_users_db_sqlalchemy`, not `fastapi_users.db`. The re-export in `fastapi_users.db` uses a `try/except` block that Pylance cannot statically trace, causing false unknown-symbol errors.
@@ -99,6 +128,7 @@ Import `SQLAlchemyUserDatabase` directly from `fastapi_users_db_sqlalchemy`, not
 - `./scripts/fetch-pr-comments.sh` — fetches open PR review comments into `docs/pr-comments.md`
 - `/pr-description` — generates a PR description and saves to `docs/pr-description.md`
 - `/review-comments` — works through `docs/pr-comments.md` one comment at a time
+- `/til` — updates `docs/til.md` with learnings from the current session
 
 ## Developer environment
 

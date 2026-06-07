@@ -115,9 +115,10 @@ One group of units sharing the same location and expiry date.
 |---|---|---|
 | id | int | Primary key |
 | item_id | int | FK → Item |
+| household_id | int | FK → Household — denormalized from Item for query isolation |
 | location_id | int | FK → Location |
-| quantity | int | |
-| expiry_date | date | Month + year precision, defaults to +12 months |
+| quantity | int | Must be > 0 |
+| expiry_date | date | Stored as full date; UI shows month + year only. Defaults to +12 months |
 | created_at | datetime | |
 
 **Why Batch exists:** The same product can be bought multiple times with different expiry dates, and/or stored across multiple locations. Each unique combination of location + expiry = one batch.
@@ -236,13 +237,13 @@ Registration forks into two paths depending on whether an invite token is presen
 ### Items
 - `GET /items` (supports search: name, location, expiry)
 - `GET /items/{id}`
-- `POST /items`
+- `POST /items` — upsert: if a barcode is provided and already exists in the household, returns the existing item with HTTP 200 so the client can proceed to add a batch. Returns 201 for a new item.
 - `PATCH /items/{id}`
-- `DELETE /items/{id}`
+- `DELETE /items/{id}` — cascades to all batches for that item
 
 ### Batches
 - `GET /items/{id}/batches`
-- `POST /items/{id}/batches`
+- `POST /items/{id}/batches` — `location_id` is optional; server defaults to last-used location for the household, then falls back to the first seeded location
 - `PATCH /batches/{id}`
 - `DELETE /batches/{id}`
 
@@ -273,7 +274,7 @@ Registration forks into two paths depending on whether an invite token is presen
 | Database | Postgres via Neon | No inactivity pause, free tier, real-world standard |
 | Auth | FastAPI Users | Educational, integrates with SQLModel, no black box |
 | SQLite vs Postgres | Postgres | Multi-user, multi-household, multi-device |
-| Expiry granularity | Month + year only | Reduces friction, good enough for pantry use |
+| Expiry granularity | Stored as full date, displayed as month + year | Full date allows precise filtering and sorting; month/year display reduces friction for the user |
 | Expiry default | +12 months from today | Zero friction for items where expiry doesn't matter |
 | Expiry OCR | v2 | Adds complexity, not needed for v1 |
 | Stock movements | v2 | Agent needs this to reason intelligently |
@@ -287,6 +288,9 @@ Registration forks into two paths depending on whether an invite token is presen
 | Location on Batch not Item | location_id on Batch | Same product can live in multiple locations (e.g. cellar + pantry); batch = unique combo of location + expiry |
 | Location default | Last used location | Lowest friction for scanning session |
 | brand + image_url on Item | Added in v1 | Single fields, zero complexity; brand disambiguates products; retrofitting requires migration |
+| Expiry date source | Manual entry in v1, OCR in v2 | Standard consumer barcodes (EAN-13, UPC-A) encode only the product ID — no expiry date. The date must be read from the packaging. Manual entry with a +1 year default covers v1; OCR via camera is the v2 solution. |
+| Past expiry dates | Allowed | No validation rejecting past `expiry_date` on batch creation — needed for initial inventory setup where users scan items already in the house. These batches appear immediately in the expiring-soon view. |
+| Scan-out (deduction) flow | Client-side in v1 | No dedicated deduct endpoint. Client fetches the batch, calculates new quantity, PATCHes with the result, and deletes the batch if it reaches zero. v2: `POST /batches/{id}/adjust` with a signed delta that auto-deletes on zero. |
 
 ---
 
