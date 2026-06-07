@@ -1,7 +1,8 @@
 from collections.abc import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .config import get_settings
 
@@ -14,7 +15,9 @@ DATABASE_URL = settings.database_url.get_secret_value()
 engine = create_async_engine(DATABASE_URL, echo=settings.environment == "development", pool_pre_ping=True)
 
 # keeps objects usable after commit (relevant for async sessions)
-_session_factory = async_sessionmaker(engine, expire_on_commit=False)
+# class_=AsyncSession uses SQLModel's session subclass, which adds the .exec() method
+# that Pylance/Pyright can resolve. SQLAlchemy's default AsyncSession doesn't have it.
+_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def get_session() -> AsyncGenerator[AsyncSession]:
