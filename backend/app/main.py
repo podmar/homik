@@ -8,7 +8,7 @@ from app.auth.backend import auth_backend
 from app.auth.users import fastapi_users
 from app.database import create_db_and_tables
 from app.models.user import UserCreate, UserRead
-from app.routers import household
+from app.routers import batches, categories, household, items, locations, lookup
 
 
 @asynccontextmanager
@@ -34,6 +34,11 @@ app.include_router(
 )
 
 app.include_router(household.router)
+app.include_router(locations.router)
+app.include_router(categories.router)
+app.include_router(items.router)
+app.include_router(batches.router)
+app.include_router(lookup.router)
 
 
 @app.get("/health")
