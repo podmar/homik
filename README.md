@@ -19,11 +19,13 @@ This project uses Claude Code for PR reviews. Claude runs in an isolated contain
 
 The loop looks like this:
 
-1. `/pr-description` (Claude Code skill) — drafts the PR description
-2. `./scripts/create-pr.sh` — opens a PR from the current branch
-3. CI runs an automated Claude review (`.github/workflows/claude-review.yml`)
-4. `./scripts/fetch-pr-comments.sh` — pulls review comments into `docs/pr-comments.md`
-5. `/review-comments` (Claude Code skill) — works through each comment interactively, one at a time
+1. `./scripts/run-lint.sh` — runs Ruff and Pyright, writes results to `docs/lint-report.md`
+2. `/fix-lint` (Claude Code skill) — works through lint issues one file at a time, auto-fixing clear errors and confirming design decisions
+3. `/pr-description` (Claude Code skill) — drafts the PR description
+4. `./scripts/create-pr.sh` — opens a PR from the current branch
+5. CI runs an automated Claude review (`.github/workflows/claude-review.yml`)
+6. `./scripts/fetch-pr-comments.sh` — pulls review comments into `docs/pr-comments.md`
+7. `/review-comments` (Claude Code skill) — works through each comment interactively, one at a time
 
 ## Stack
 
