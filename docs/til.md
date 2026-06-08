@@ -85,7 +85,27 @@
 
 ---
 
+## Developer Tooling
+
+- **`set -uo pipefail` without `-e` for lint scripts.** `-e` exits immediately on any non-zero exit code, which would kill the script before capturing lint output — lint failures are the expected case. Drop `-e` and capture output with `|| true` so both tools always run regardless of result.
+- **`uv run` via a subshell, not a direct binary path.** Running `(cd backend && uv run ruff check .)` ensures `uv` resolves the correct project virtualenv without hardcoding `.venv/bin/ruff` or assuming anything about PATH. Works identically on any machine with `uv` installed.
+- **Claude Code skill design: classify before acting.** The `/fix-lint` skill explicitly separates "clear errors" (auto-fix: unused imports, missing annotations on private functions, print statements) from "design decisions" (wait for confirmation: `# type: ignore`, public API type changes, logic restructuring). Without this, a skill would either be too timid (ask about everything) or too aggressive (silently change semantics). The classification is defined in the skill file itself so the behaviour is predictable and auditable.
+
+---
+
 ## Session Log
+
+### 2026-06-08 — Lint workflow tooling (PR: feat/lint-workflow)
+
+Built: `scripts/run-lint.sh` (Ruff + Pyright → `docs/lint-report.md`) and `/fix-lint` Claude Code skill.
+
+Key decisions:
+- `set -uo pipefail` without `-e` — lint exit codes must be captured, not abort the script
+- `uv run` via subshell — no PATH assumptions, correct virtualenv always used
+- `/fix-lint` skill classifies issues as "clear error" or "design decision" before acting — prevents silent semantic changes
+- `docs/lint-report.md` gitignored — same pattern as `pr-comments.md` / `pr-description.md`
+
+---
 
 ### 2026-06-08 — CRUD refinements (PR: feat/pr-review-comments)
 
