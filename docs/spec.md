@@ -246,7 +246,8 @@ Registration forks into two paths depending on whether an invite token is presen
 ### Batches
 - `GET /items/{id}/batches`
 - `POST /items/{id}/batches` — `location_id` is optional; server defaults to last-used location for the household, then falls back to the first seeded location
-- `PATCH /batches/{id}`
+- `POST /batches/{id}/adjust` — preferred endpoint for scan in/out. Accepts `{"delta": int}` (positive = add stock, negative = use stock). Returns 200 + updated batch if quantity > 0 after adjustment; returns 204 and deletes the batch if quantity reaches 0 or below.
+- `PATCH /batches/{id}` — direct quantity/location/expiry override; use adjust for scan flows
 - `DELETE /batches/{id}`
 
 ### Expiry
@@ -292,7 +293,7 @@ Registration forks into two paths depending on whether an invite token is presen
 | brand + image_url on Item | Added in v1 | Single fields, zero complexity; brand disambiguates products; retrofitting requires migration |
 | Expiry date source | Manual entry in v1, OCR in v2 | Standard consumer barcodes (EAN-13, UPC-A) encode only the product ID — no expiry date. The date must be read from the packaging. Manual entry with a +1 year default covers v1; OCR via camera is the v2 solution. |
 | Past expiry dates | Allowed | No validation rejecting past `expiry_date` on batch creation — needed for initial inventory setup where users scan items already in the house. These batches appear immediately in the expiring-soon view. |
-| Scan-out (deduction) flow | Client-side in v1 | No dedicated deduct endpoint. Client fetches the batch, calculates new quantity, PATCHes with the result, and deletes the batch if it reaches zero. v2: `POST /batches/{id}/adjust` with a signed delta that auto-deletes on zero. |
+| Scan-out (deduction) flow | `POST /batches/{id}/adjust` | A dedicated adjust endpoint with a signed delta is simpler for the frontend than requiring it to calculate new quantity and branch between PATCH and DELETE. Auto-deletes the batch when quantity reaches zero. |
 
 ---
 

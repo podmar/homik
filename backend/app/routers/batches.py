@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlmodel import Field, SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -36,6 +36,11 @@ class BatchUpdate(SQLModel):
     quantity: int | None = Field(default=None, gt=0)
     expiry_date: date | None = None
     location_id: int | None = None
+
+
+class BatchAdjust(SQLModel):
+    # Positive = scan in (add stock), negative = scan out (use stock).
+    delta: int
 
 
 async def _default_location_id(session: AsyncSession, household_id: int) -> int | None:
@@ -161,6 +166,42 @@ async def delete_batch(
         raise HTTPException(status_code=404, detail="Batch not found")
     await session.delete(batch)
     await session.commit()
+
+
+@router.post("/batches/{batch_id}/adjust")
+async def adjust_batch(
+    batch_id: int,
+    data: BatchAdjust,
+    response: Response,
+    user: Annotated[User, Depends(current_active_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> BatchRead | None:
+    if user.household_id is None:
+        raise HTTPException(status_code=400, detail="No household assigned to this account")
+    batch = await session.get(Batch, batch_id)
+    if batch is None or batch.household_id != user.household_id:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    new_quantity = batch.quantity + data.delta
+
+    if new_quantity < 0:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Cannot remove {abs(data.delta)} — only {batch.quantity} in stock",
+        )
+
+    if new_quantity == 0:
+        # Quantity exhausted — delete the batch rather than storing a zero value.
+        await session.delete(batch)
+        await session.commit()
+        response.status_code = 204
+        return None
+
+    batch.quantity = new_quantity
+    session.add(batch)
+    await session.commit()
+    await session.refresh(batch)
+    return BatchRead.model_validate(batch)
 
 
 @router.get("/expiring")
