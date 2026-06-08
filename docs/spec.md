@@ -15,11 +15,22 @@ A mobile-friendly web app for managing household inventory — food, cleaning pr
 
 ## 2. Version Roadmap
 
-### v1 — Inventory App (this spec)
+### v1 — Backend (complete)
 - Auth + household management
-- Scan items in/out via barcode
-- Inventory browsing + search
+- CRUD for locations, categories, items, batches
+- Barcode lookup proxy (Open Food Facts)
 - Expiring soon view
+
+### v1 — Frontend (in progress)
+Intentionally a thin slice — get something working and user-friendly first, then add features based on real usage. Feature prioritisation happens after the first working version, not before.
+
+Minimum to ship:
+- Auth (register, login)
+- Inventory list
+- Item detail + batch list
+- Scan flow (barcode → add batch)
+
+Filters, search, and additional views are deferred until real usage shows what's needed. No v2 FE scope defined yet.
 
 ### v2 — Agent Layer
 - Weekly agent run: reasons over inventory
@@ -237,7 +248,7 @@ Registration forks into two paths depending on whether an invite token is presen
 - `DELETE /categories/{id}`
 
 ### Items
-- `GET /items` (supports search: name, location, expiry)
+- `GET /items` (supports search: `?name=`, `?location_id=`)
 - `GET /items/{id}`
 - `POST /items` — upsert: if a barcode is provided and already exists in the household, returns the existing item with HTTP 200 so the client can proceed to add a batch. Returns 201 for a new item.
 - `PATCH /items/{id}`
