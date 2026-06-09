@@ -6,7 +6,7 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.db import BaseUserDatabase
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.auth.backend import auth_backend
 from app.config import get_settings
@@ -49,6 +49,9 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             household = Household(name=f"{prefix}'s household")
             self.session.add(household)
             await self.session.flush()  # writes household row and populates household.id
+            # flush always populates the PK; the None check is for type narrowing only.
+            if household.id is None:
+                raise RuntimeError("Household PK not populated after flush")
             user.household_id = household.id  # session tracks this change automatically
             self.session.add(Location(household_id=household.id, name="Pantry"))
             self.session.add(Category(household_id=household.id, name="Food"))

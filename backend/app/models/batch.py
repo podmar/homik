@@ -6,6 +6,11 @@ from sqlmodel import Field, SQLModel
 
 class Batch(SQLModel, table=True):
     __tablename__ = "batches"  # type: ignore[assignment]
+    # Enforces the core invariant: one batch per unique (item, location, expiry) combo.
+    # Prevents duplicate batches from being created directly or via the location move flow.
+    __table_args__ = (
+        sa.UniqueConstraint("item_id", "location_id", "expiry_date", name="uq_batch_item_location_expiry"),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     # Denormalized from Item for query-level household isolation — every batch query can filter
