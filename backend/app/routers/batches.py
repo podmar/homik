@@ -147,6 +147,30 @@ async def update_batch(
     for field, value in updates.items():
         setattr(batch, field, value)
 
+    # Check whether the updated (item, location, expiry) would collide with an existing batch.
+    # If so, merge quantities into the surviving batch and delete this one — same behaviour
+    # as the location-delete move flow. Returns the surviving batch so the client sees the
+    # correct quantity at the destination without needing a separate fetch.
+    existing = (
+        await session.exec(
+            select(Batch).where(
+                Batch.item_id == batch.item_id,
+                Batch.location_id == batch.location_id,
+                Batch.expiry_date == batch.expiry_date,
+                Batch.household_id == user.household_id,
+                Batch.id != batch_id,
+            )
+        )
+    ).first()
+
+    if existing is not None:
+        existing.quantity += batch.quantity
+        session.add(existing)
+        await session.delete(batch)
+        await session.commit()
+        await session.refresh(existing)
+        return BatchRead.model_validate(existing)
+
     session.add(batch)
     await session.commit()
     await session.refresh(batch)
