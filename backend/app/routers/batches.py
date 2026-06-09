@@ -89,6 +89,7 @@ async def list_item_batches(
 async def create_batch(
     item_id: int,
     data: BatchCreate,
+    response: Response,
     user: Annotated[User, Depends(current_active_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> BatchRead:
@@ -111,12 +112,35 @@ async def create_batch(
     if location is None or location.household_id != user.household_id:
         raise HTTPException(status_code=404, detail="Location not found")
 
+    expiry_date = data.expiry_date or date.today() + timedelta(days=365)
+
+    # If a batch already exists for this (item, location, expiry), merge quantities
+    # rather than rejecting — user intent is "add stock here", not "create a new record".
+    existing = (
+        await session.exec(
+            select(Batch).where(
+                Batch.item_id == item_id,
+                Batch.location_id == location_id,
+                Batch.expiry_date == expiry_date,
+                Batch.household_id == user.household_id,
+            )
+        )
+    ).first()
+
+    if existing is not None:
+        existing.quantity += data.quantity
+        session.add(existing)
+        await session.commit()
+        await session.refresh(existing)
+        response.status_code = 200
+        return BatchRead.model_validate(existing)
+
     batch = Batch(
         item_id=item_id,
         household_id=user.household_id,
         location_id=location_id,
         quantity=data.quantity,
-        expiry_date=data.expiry_date or date.today() + timedelta(days=365),
+        expiry_date=expiry_date,
     )
     session.add(batch)
     await session.commit()
