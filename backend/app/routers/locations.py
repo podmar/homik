@@ -138,7 +138,12 @@ async def delete_location(
         # adding quantities rather than creating a duplicate — which would violate
         # the unique constraint on (item_id, location_id, expiry_date).
         batches = (
-            await session.exec(select(Batch).where(Batch.location_id == location_id))
+            await session.exec(
+                select(Batch).where(
+                    Batch.location_id == location_id,
+                    Batch.household_id == user.household_id,
+                )
+            )
         ).all()
         for batch in batches:
             existing = (
@@ -147,6 +152,7 @@ async def delete_location(
                         Batch.item_id == batch.item_id,
                         Batch.location_id == move_to,
                         Batch.expiry_date == batch.expiry_date,
+                        Batch.household_id == user.household_id,
                     )
                 )
             ).first()
