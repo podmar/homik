@@ -35,7 +35,7 @@ async def lookup_barcode(
         ) from exc
 
     if response.status_code != 200:
-        raise HTTPException(status_code=502, detail="Product lookup service unavailable")
+        raise HTTPException(status_code=502, detail=f"Product lookup service returned {response.status_code}")
 
     data = response.json()
     if data.get("status") != 1:
