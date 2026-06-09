@@ -39,6 +39,7 @@
 - **`household_id` is always set server-side.** It comes from `current_active_user`, never from the request body. The client has no say in which household an object belongs to.
 - **`household_id` on Batch is denormalized.** It's copied from the Item so that every batch query can filter by household directly, without joining through items. This is a deliberate performance and isolation trade-off.
 - **Guard `user.household_id is None` at the top of every endpoint.** The `User` model has `household_id: int | None` (nullable for future invite flow). Without the guard, a user with no household would get confusing 404s. With it, they get a clear 400. The guard also narrows the type for Pyright.
+- **Household_id filter rule: parent verified immediately → no redundant filter on children.** If the parent was ownership-checked one line above, child queries scoped to that parent's FK are guaranteed to be in-household. Adding another filter is noise. Exception: if the household check is further up the call chain (e.g., the location was verified earlier but the batch queries come much later, as in `delete_location`), add `household_id` as a second gate — the chain is long enough to break.
 - **Subqueries for filtering should also filter by `household_id`.** In `GET /items?location_id=X`, the subquery finding batches at that location also filters `Batch.household_id == user.household_id` — even though the outer query already filters items by household. Belt and braces.
 
 ---
@@ -72,6 +73,7 @@
 - **Cascade delete on items.** Deleting an item manually deletes all its batches first, then the item. No DB-level cascade configured — explicit in code. N+1 queries, acceptable for household-scale data.
 - **Unique constraint on `(item_id, location_id, expiry_date)`.** Enforces the core batch invariant at DB level: one batch per unique combination. Without it, the location move flow could silently create duplicate batches. See `models/batch.py`.
 - **Merge batches on location move.** When moving batches to a target location, check first whether the target already has a batch for the same `(item_id, expiry_date)`. If yes, add quantities and delete the source batch. If no, just update `location_id`. Prevents a unique constraint violation and keeps data clean.
+- **Merge batches on POST/PATCH collision instead of rejecting.** Both `POST /items/{id}/batches` and `PATCH /batches/{id}` now merge quantities into the existing batch when `(item_id, location_id, expiry_date)` would collide. User intent is "add stock here" — a 409 forces the client to recover from something that isn't really an error. Both endpoints return the surviving batch so the client has the correct state without a separate fetch. PATCH returns the surviving batch even if its `id` differs from the one in the URL.
 - **409 for FK-protected deletes.** Deleting a location that has batches, or a category that has items, returns 409. The data isn't orphaned; the client gets a clear signal about why the delete was rejected.
 - **Query parameter for cascading operations.** `DELETE /locations/{id}?move_to={id}` uses a query param to pass the target location. One endpoint handles all cases: no batches → clean delete; has batches + no `move_to` → 409 with instructions; has batches + `move_to` → move then delete. Cleaner than a separate "move" endpoint.
 - **Cannot delete the last location.** Guard against deleting the only location in a household — batches would have nowhere to go. Count locations first; 409 if only one remains.
@@ -80,7 +82,6 @@
 - **FE does client-side categorisation.** `GET /items` returns all items; the frontend categorises into stocked / expiring soon / expired / out of stock using the batch data it already fetches. No need for an `expiry_before` filter on the backend — that's the frontend's job. `GET /expiring` is still useful for a dedicated flat list of batches sorted by date.
 - **Remove filters that duplicate frontend logic.** `expiry_before` was removed from `GET /items` because the FE already has all the data it needs to categorise. Don't add backend filters until a real screen proves it's needed — adding one later is cheap, maintaining unused code is not.
 - **Past expiry dates are allowed.** No validation prevents creating a batch with a past `expiry_date`. Needed for initial inventory setup — scanning items already in the house. These appear immediately in `GET /expiring`.
-- **Scan-out (deduction) flow in v1.** No dedicated deduct endpoint. Client fetches batch, calculates new quantity, PATCHes. If quantity hits zero, client deletes the batch. v2 plan: `POST /batches/{id}/adjust` with a signed `delta` that auto-deletes on zero.
 - **Standard consumer barcodes don't contain expiry dates.** EAN-13/UPC-A encode only the product ID. Expiry must be entered manually (v1) or OCR-scanned from the packaging (v2).
 
 ---
@@ -89,6 +90,8 @@
 
 - **`set -uo pipefail` without `-e` for lint scripts.** `-e` exits immediately on any non-zero exit code, which would kill the script before capturing lint output — lint failures are the expected case. Drop `-e` and capture output with `|| true` so both tools always run regardless of result.
 - **`uv run` via a subshell, not a direct binary path.** Running `(cd backend && uv run ruff check .)` ensures `uv` resolves the correct project virtualenv without hardcoding `.venv/bin/ruff` or assuming anything about PATH. Works identically on any machine with `uv` installed.
+- **`gh pr edit --body "$(cat docs/pr-description.md)"`** updates the PR description from a local file. Combine with a shell function (not an alias) so the `$()` expands at call time, not at definition time: `update-pr() { gh pr edit --body "$(cat docs/pr-description.md)"; }` in `~/.zshrc`.
+- **Shell functions vs aliases for subshell expansion.** A plain `alias` expands `$()` when the alias is defined, capturing the value at shell startup. A function re-evaluates `$()` every time it's called — necessary whenever the substitution reads a file that changes between calls.
 - **Claude Code skill design: classify before acting.** The `/fix-lint` skill explicitly separates "clear errors" (auto-fix: unused imports, missing annotations on private functions, print statements) from "design decisions" (wait for confirmation: `# type: ignore`, public API type changes, logic restructuring). Without this, a skill would either be too timid (ask about everything) or too aggressive (silently change semantics). The classification is defined in the skill file itself so the behaviour is predictable and auditable.
 
 ---
@@ -104,6 +107,19 @@ Key decisions:
 - `uv run` via subshell — no PATH assumptions, correct virtualenv always used
 - `/fix-lint` skill classifies issues as "clear error" or "design decision" before acting — prevents silent semantic changes
 - `docs/lint-report.md` gitignored — same pattern as `pr-comments.md` / `pr-description.md`
+
+---
+
+### 2026-06-09 — PR review pass on CRUD endpoints (PR: feat/crud-endpoints)
+
+Built: worked through 8 automated review comments; applied 4 fixes, skipped 4 false positives.
+
+Key decisions:
+- Batch POST and PATCH merge quantities on `(item_id, location_id, expiry_date)` collision — 409 was wrong UX
+- `household_id` filter rule established: parent verified immediately → no redundant child filter; longer chain → add filter
+- `delete_location` batch queries were missing `household_id` — genuine isolation gap fixed
+- Stale "scan-out v1 = no adjust endpoint" TIL entry removed (endpoint was already built)
+- `gh pr edit --body "$(cat ...)"` + shell function pattern documented
 
 ---
 
