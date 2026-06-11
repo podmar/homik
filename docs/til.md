@@ -71,11 +71,35 @@
 - **`uv run` via a subshell, not a direct binary path.** Running `(cd backend && uv run ruff check .)` ensures `uv` resolves the correct project virtualenv without hardcoding `.venv/bin/ruff` or assuming anything about PATH. Works identically on any machine with `uv` installed.
 - **`gh pr edit --body "$(cat docs/pr-description.md)"`** updates the PR description from a local file. Combine with a shell function (not an alias) so the `$()` expands at call time, not at definition time: `update-pr() { gh pr edit --body "$(cat docs/pr-description.md)"; }` in `~/.zshrc`.
 - **Shell functions vs aliases for subshell expansion.** A plain `alias` expands `$()` when the alias is defined, capturing the value at shell startup. A function re-evaluates `$()` every time it's called — necessary whenever the substitution reads a file that changes between calls.
-- **Claude Code skill design: classify before acting.** The `/fix-lint` skill explicitly separates "clear errors" (auto-fix: unused imports, missing annotations on private functions, print statements) from "design decisions" (wait for confirmation: `# type: ignore`, public API type changes, logic restructuring). Without this, a skill would either be too timid (ask about everything) or too aggressive (silently change semantics). The classification is defined in the skill file itself so the behaviour is predictable and auditable.
+---
+
+## Claude Code Skill Design
+
+- **Write skill files as direct instructions, not documents.** Headers and "when to use" sections are for human readers — at runtime, document structure makes Claude process scaffolding before content. Imperative instructions ("do X", "skip if Y") are more directly actionable.
+- **Classify before acting — the core skill pattern.** `/fix-lint` separates "clear errors" (auto-fix) from "design decisions" (wait for confirmation). Without this, a skill is either too timid (asks about everything) or too aggressive (silently changes semantics).
+- **Sharpness rules outperform general guidance.** "Skip if already covered" is more effective than "be concise" — it names the specific failure mode rather than the virtue. Anticipate exactly how the skill can go wrong and kill each one by name.
+- **Confirm-before-write for file-writing skills.** Draft, show the user, wait for confirmation before touching the file. Without this instruction, Claude writes first and the user reviews a diff after the fact.
+- **Explicit "nothing qualifies" instruction prevents invented entries.** Without it, Claude will pad output to justify running. One line eliminates the whole failure mode.
+- **Pacing depends on task shape.** Iterative skills (fix-lint, review-comments) pause after each item. Single-output skills (til, update-spec, pr-description) follow gather → draft → confirm → write. Match the pattern to the task.
+- **CLAUDE.md is ambient; `.claude/prompts/` is on-demand.** CLAUDE.md loads every session — use it for things needed most sessions. For occasional tasks (e.g. writing a new skill), a prompt template in `.claude/prompts/` costs nothing when not in use and the user pastes it when needed. Frequency of use is the deciding factor.
 
 ---
 
 ## Session Log
+
+### 2026-06-11 — TIL/spec boundary + skill design (PR: chore/til-spec-split)
+
+Built: moved API Design Decisions from TIL to spec, created `/update-spec` skill, rewrote `/til` and `/update-spec` for better performance.
+
+Key learnings:
+- Skill files should be direct instructions — document structure makes Claude process scaffolding before content
+- Sharpness rules (name the failure mode) outperform general guidance
+- Confirm-before-write keeps user in control without post-hoc diff review
+- "Nothing qualifies, say so and stop" prevents skill padding
+- Pacing: iterative skills (one-at-a-time) vs single-output skills (gather → draft → confirm → write)
+- CLAUDE.md vs `.claude/prompts/`: ambient vs on-demand context — frequency of use determines where an instruction lives
+
+---
 
 ### 2026-06-08 — Lint workflow tooling (PR: feat/lint-workflow)
 
