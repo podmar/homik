@@ -1,17 +1,18 @@
 # 🐹 homik
 
-A mobile-friendly web app for managing household inventory —
-food, cleaning products, and anything stored in hard-to-see
-places like a cellar.
+A mobile-friendly household inventory app — scan items in and out, browse by location, see what's expiring soon. Built for real daily use by multiple households.
 
 > *homik* blends "home" with "chomik" (Polish for hamster 🐹).
 
-## What it does
+Built with production practices in mind — the interesting part is the reasoning behind the decisions, not the feature list.
 
-- Scan items in and out via barcode
-- Browse inventory by location (fridge, cellar, pantry…)
-- See what's expiring soon
-- Multi-user household support
+## What's interesting technically
+
+- **Batch model** — the same product can live in multiple locations with different expiry dates. A `Batch` represents one unique combination of item + location + expiry, enforced by a DB constraint. Moving batches between locations merges quantities rather than creating duplicates.
+- **Multi-tenant isolation** — every query is scoped to `household_id`. The API returns 404 for both "not found" and "wrong household" — never 403, which would leak whether an ID exists.
+- **Intentionally thin v1** — no features added until real usage shows they're needed. The frontend categorises inventory client-side from data it already has, rather than adding backend filters speculatively.
+
+For the full decision log: [`docs/spec.md`](docs/spec.md) — [`docs/til.md`](docs/til.md)
 
 ## Development workflow
 
@@ -56,6 +57,3 @@ homik/
 See [backend/README.md](backend/README.md) to run the API locally.
 Frontend setup instructions coming once scaffolded.
 
-## Status
-
-🚧 Active development — v1 (inventory app) in progress.
