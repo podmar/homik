@@ -65,38 +65,41 @@
 
 ---
 
-## API Design Decisions
-
-- **POST /items upsert pattern.** If a barcode already exists in the household, return the existing item with 200 instead of creating a duplicate. The client uses the status code to decide: 200 = "item exists, add a batch"; 201 = "new item created". This avoids a separate lookup-then-create flow.
-- **Last-used location default.** When creating a batch without an explicit `location_id`, the server looks up the most recent batch for that household and uses its location. Falls back to the first seeded location. Falls back to 400 if no locations exist. This is API logic, not DB state.
-- **`quantity > 0` validated at two layers.** Pydantic `Field(gt=0)` gives a clean 422 with a readable message. The DB `CheckConstraint("quantity > 0")` is the safety net if the API layer is ever bypassed.
-- **Cascade delete on items.** Deleting an item manually deletes all its batches first, then the item. No DB-level cascade configured — explicit in code. N+1 queries, acceptable for household-scale data.
-- **Unique constraint on `(item_id, location_id, expiry_date)`.** Enforces the core batch invariant at DB level: one batch per unique combination. Without it, the location move flow could silently create duplicate batches. See `models/batch.py`.
-- **Merge batches on location move.** When moving batches to a target location, check first whether the target already has a batch for the same `(item_id, expiry_date)`. If yes, add quantities and delete the source batch. If no, just update `location_id`. Prevents a unique constraint violation and keeps data clean.
-- **Merge batches on POST/PATCH collision instead of rejecting.** Both `POST /items/{id}/batches` and `PATCH /batches/{id}` now merge quantities into the existing batch when `(item_id, location_id, expiry_date)` would collide. User intent is "add stock here" — a 409 forces the client to recover from something that isn't really an error. Both endpoints return the surviving batch so the client has the correct state without a separate fetch. PATCH returns the surviving batch even if its `id` differs from the one in the URL.
-- **409 for FK-protected deletes.** Deleting a location that has batches, or a category that has items, returns 409. The data isn't orphaned; the client gets a clear signal about why the delete was rejected.
-- **Query parameter for cascading operations.** `DELETE /locations/{id}?move_to={id}` uses a query param to pass the target location. One endpoint handles all cases: no batches → clean delete; has batches + no `move_to` → 409 with instructions; has batches + `move_to` → move then delete. Cleaner than a separate "move" endpoint.
-- **Cannot delete the last location.** Guard against deleting the only location in a household — batches would have nowhere to go. Count locations first; 409 if only one remains.
-- **`POST /batches/{id}/adjust` — delta pattern.** Preferred over PATCH for scan flows. Client sends `{"delta": -2}`; server handles whether that means update or delete. Removes the client-side burden of branching between PATCH (quantity > 0) and DELETE (quantity = 0). Returns 200 + updated batch if quantity remains; 204 if batch is exhausted.
-- **Distinguish `new_quantity < 0` from `== 0`.** In the adjust endpoint: `< 0` means the user is trying to remove more than exists — return 422 with current stock in the message. `== 0` means stock is exhausted — delete the batch and return 204. These are different cases and should return different responses.
-- **FE does client-side categorisation.** `GET /items` returns all items; the frontend categorises into stocked / expiring soon / expired / out of stock using the batch data it already fetches. No need for an `expiry_before` filter on the backend — that's the frontend's job. `GET /expiring` is still useful for a dedicated flat list of batches sorted by date.
-- **Remove filters that duplicate frontend logic.** `expiry_before` was removed from `GET /items` because the FE already has all the data it needs to categorise. Don't add backend filters until a real screen proves it's needed — adding one later is cheap, maintaining unused code is not.
-- **Past expiry dates are allowed.** No validation prevents creating a batch with a past `expiry_date`. Needed for initial inventory setup — scanning items already in the house. These appear immediately in `GET /expiring`.
-- **Standard consumer barcodes don't contain expiry dates.** EAN-13/UPC-A encode only the product ID. Expiry must be entered manually (v1) or OCR-scanned from the packaging (v2).
-
----
-
 ## Developer Tooling
 
 - **`set -uo pipefail` without `-e` for lint scripts.** `-e` exits immediately on any non-zero exit code, which would kill the script before capturing lint output — lint failures are the expected case. Drop `-e` and capture output with `|| true` so both tools always run regardless of result.
 - **`uv run` via a subshell, not a direct binary path.** Running `(cd backend && uv run ruff check .)` ensures `uv` resolves the correct project virtualenv without hardcoding `.venv/bin/ruff` or assuming anything about PATH. Works identically on any machine with `uv` installed.
 - **`gh pr edit --body "$(cat docs/pr-description.md)"`** updates the PR description from a local file. Combine with a shell function (not an alias) so the `$()` expands at call time, not at definition time: `update-pr() { gh pr edit --body "$(cat docs/pr-description.md)"; }` in `~/.zshrc`.
 - **Shell functions vs aliases for subshell expansion.** A plain `alias` expands `$()` when the alias is defined, capturing the value at shell startup. A function re-evaluates `$()` every time it's called — necessary whenever the substitution reads a file that changes between calls.
-- **Claude Code skill design: classify before acting.** The `/fix-lint` skill explicitly separates "clear errors" (auto-fix: unused imports, missing annotations on private functions, print statements) from "design decisions" (wait for confirmation: `# type: ignore`, public API type changes, logic restructuring). Without this, a skill would either be too timid (ask about everything) or too aggressive (silently change semantics). The classification is defined in the skill file itself so the behaviour is predictable and auditable.
+---
+
+## Claude Code Skill Design
+
+- **Write skill files as direct instructions, not documents.** Headers and "when to use" sections are for human readers — at runtime, document structure makes Claude process scaffolding before content. Imperative instructions ("do X", "skip if Y") are more directly actionable.
+- **Classify before acting — the core skill pattern.** `/fix-lint` separates "clear errors" (auto-fix) from "design decisions" (wait for confirmation). Without this, a skill is either too timid (asks about everything) or too aggressive (silently changes semantics).
+- **Sharpness rules outperform general guidance.** "Skip if already covered" is more effective than "be concise" — it names the specific failure mode rather than the virtue. Anticipate exactly how the skill can go wrong and kill each one by name.
+- **Confirm-before-write for file-writing skills.** Draft, show the user, wait for confirmation before touching the file. Without this instruction, Claude writes first and the user reviews a diff after the fact.
+- **Explicit "nothing qualifies" instruction prevents invented entries.** Without it, Claude will pad output to justify running. One line eliminates the whole failure mode.
+- **Pacing depends on task shape.** Iterative skills (fix-lint, review-comments) pause after each item. Single-output skills (til, update-spec, pr-description) follow gather → draft → confirm → write. Match the pattern to the task.
+- **CLAUDE.md is ambient; `.claude/prompts/` is on-demand.** CLAUDE.md loads every session — use it for things needed most sessions. For occasional tasks (e.g. writing a new skill), a prompt template in `.claude/prompts/` costs nothing when not in use and the user pastes it when needed. Frequency of use is the deciding factor.
 
 ---
 
 ## Session Log
+
+### 2026-06-11 — TIL/spec boundary + skill design (PR: chore/til-spec-split)
+
+Built: moved API Design Decisions from TIL to spec, created `/update-spec` skill, rewrote `/til` and `/update-spec` for better performance.
+
+Key learnings:
+- Skill files should be direct instructions — document structure makes Claude process scaffolding before content
+- Sharpness rules (name the failure mode) outperform general guidance
+- Confirm-before-write keeps user in control without post-hoc diff review
+- "Nothing qualifies, say so and stop" prevents skill padding
+- Pacing: iterative skills (one-at-a-time) vs single-output skills (gather → draft → confirm → write)
+- CLAUDE.md vs `.claude/prompts/`: ambient vs on-demand context — frequency of use determines where an instruction lives
+
+---
 
 ### 2026-06-08 — Lint workflow tooling (PR: feat/lint-workflow)
 

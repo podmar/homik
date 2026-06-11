@@ -129,6 +129,7 @@ Import `SQLAlchemyUserDatabase` directly from `fastapi_users_db_sqlalchemy`, not
 - `/pr-description` — generates a PR description and saves to `docs/pr-description.md`
 - `/review-comments` — works through `docs/pr-comments.md` one comment at a time
 - `/til` — updates `docs/til.md` with learnings from the current session
+- `/update-spec` — updates `docs/spec.md` with project-specific API and data model decisions
 
 ## Developer environment
 
