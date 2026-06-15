@@ -1,9 +1,11 @@
+import asyncio
 from collections.abc import AsyncGenerator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 from sqlmodel import SQLModel
@@ -36,14 +38,26 @@ _db._session_factory = async_sessionmaker(_test_engine, class_=AsyncSession, exp
 from app.main import app  # noqa: E402 — must follow the patch above
 
 
+@pytest.fixture(scope="session", autouse=True)
+def create_schema() -> None:
+    # Run DDL once per session rather than per test. asyncio.run() opens a fresh
+    # event loop here so the session-scoped fixture doesn't conflict with the
+    # function-scoped loops used by individual tests (required with NullPool).
+    async def _setup() -> None:
+        async with _test_engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.drop_all)
+            await conn.run_sync(SQLModel.metadata.create_all)
+
+    asyncio.run(_setup())
+
+
 @pytest.fixture(autouse=True)
-async def clean_db() -> None:
-    # Drop and recreate all tables so the schema always reflects the current models,
-    # including any constraints added after the test DB was first provisioned.
-    # With NullPool each connection is fresh, so this is safe across event loops.
+async def truncate_tables() -> None:
+    # TRUNCATE is DML, not DDL — much faster than drop/create per test.
+    # CASCADE handles FK ordering; RESTART IDENTITY resets sequences between tests.
+    table_names = ", ".join(f'"{t.name}"' for t in SQLModel.metadata.sorted_tables)
     async with _test_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.drop_all)
-        await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.execute(text(f"TRUNCATE {table_names} RESTART IDENTITY CASCADE"))
 
 
 @pytest.fixture
