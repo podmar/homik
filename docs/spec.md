@@ -305,6 +305,7 @@ Registration forks into two paths depending on whether an invite token is presen
 | Expiry date source | Manual entry in v1, OCR in v2 | Standard consumer barcodes (EAN-13, UPC-A) encode only the product ID — no expiry date. The date must be read from the packaging. Manual entry with a +1 year default covers v1; OCR via camera is the v2 solution. |
 | Past expiry dates | Allowed | No validation rejecting past `expiry_date` on batch creation — needed for initial inventory setup where users scan items already in the house. These batches appear immediately in the expiring-soon view. |
 | Scan-out (deduction) flow | `POST /batches/{id}/adjust` | A dedicated adjust endpoint with a signed delta is simpler for the frontend than requiring it to calculate new quantity and branch between PATCH and DELETE. Auto-deletes the batch when quantity reaches zero. |
+| Barcode uniqueness scope | `UNIQUE(household_id, barcode)` not global | Global uniqueness would prevent two households from stocking the same product |
 
 ### API Contract Decisions
 
@@ -315,6 +316,7 @@ Registration forks into two paths depending on whether an invite token is presen
 - **409 for FK-protected deletes.** Deleting a location that has batches, or a category that has items, returns 409. Data is not orphaned; the client gets a clear rejection signal.
 - **`DELETE /locations/{id}?move_to={id}` — query param for cascading deletes.** One endpoint covers all cases: no batches → clean delete; has batches + no `move_to` → 409 with instructions; has batches + `move_to` → move then delete.
 - **Cannot delete the last location.** Deleting the only location in a household is blocked with 409 — batches would have nowhere to move.
+- **Barcode constraint is household-scoped, not global.** `UNIQUE(household_id, barcode)` — two households can each have a separate item with the same barcode. A global unique constraint would silently break multi-tenant use.
 - **FE categorises inventory, not the backend.** `GET /items` returns all items; the frontend sorts into stocked / expiring soon / expired / out of stock from batch data it already has. No `expiry_before` filter on `GET /items` — don't add backend filters until a real screen proves it's needed. `GET /expiring` exists for the dedicated flat-list sorted by date.
 
 ---

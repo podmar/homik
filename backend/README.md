@@ -27,6 +27,7 @@ uv run fastapi dev app/main.py
 | Variable                    | Description                        |
 |-----------------------------|------------------------------------|
 | `DATABASE_URL`              | Neon PostgreSQL connection string  |
+| `TEST_DATABASE_URL`         | Separate Neon database for tests — must differ from `DATABASE_URL` (tests truncate all tables) |
 | `SECRET_KEY`                | JWT signing secret                 |
 | `ALGORITHM`                 | JWT algorithm (default: HS256)     |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime (default: 30)     |
@@ -50,5 +51,11 @@ uv run pyright
 ## Tests
 
 ```bash
+# Run tests (from project root — writes output to docs/test-report.txt)
+./scripts/run-tests.sh
+
+# Or run directly from backend/
 uv run pytest
 ```
+
+Use `/fix-test` in Claude Code to work through any failures.

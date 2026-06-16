@@ -168,19 +168,19 @@ async def update_batch(
         if location is None or location.household_id != user.household_id:
             raise HTTPException(status_code=404, detail="Location not found")
 
-    for field, value in updates.items():
-        setattr(batch, field, value)
+    # Resolve what the new (location, expiry) would be after the update, then check
+    # for a collision BEFORE modifying the batch. Modifying first would mark the ORM
+    # object dirty; SQLAlchemy's autoflush would then emit the UPDATE before our SELECT,
+    # hitting the unique constraint instead of letting us handle the merge gracefully.
+    new_location_id = updates.get("location_id", batch.location_id)
+    new_expiry_date = updates.get("expiry_date", batch.expiry_date)
 
-    # Check whether the updated (item, location, expiry) would collide with an existing batch.
-    # If so, merge quantities into the surviving batch and delete this one — same behaviour
-    # as the location-delete move flow. Returns the surviving batch so the client sees the
-    # correct quantity at the destination without needing a separate fetch.
     existing = (
         await session.exec(
             select(Batch).where(
                 Batch.item_id == batch.item_id,
-                Batch.location_id == batch.location_id,
-                Batch.expiry_date == batch.expiry_date,
+                Batch.location_id == new_location_id,
+                Batch.expiry_date == new_expiry_date,
                 Batch.household_id == user.household_id,
                 Batch.id != batch_id,
             )
@@ -194,6 +194,9 @@ async def update_batch(
         await session.commit()
         await session.refresh(existing)
         return BatchRead.model_validate(existing)
+
+    for field, value in updates.items():
+        setattr(batch, field, value)
 
     session.add(batch)
     await session.commit()
