@@ -33,7 +33,8 @@ if _env.database_url.get_secret_value() == _env.test_database_url.get_secret_val
 # NullPool creates a fresh connection per operation and never retains one between
 # uses — required for async SQLAlchemy tests where each test runs in its own
 # event loop. A retained connection would be bound to the loop that created it
-# and fail with "Future attached to a different loop" in subsequent tests.
+# and fail with "Future attached to a different loop" in subsequent tests,
+# because pytest-asyncio creates a new event loop per test function by default.
 _test_engine = create_async_engine(
     _env.test_database_url.get_secret_value(),
     poolclass=NullPool,
