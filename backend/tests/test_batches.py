@@ -170,3 +170,26 @@ async def test_expiring_isolation(client: AsyncClient, auth, other_auth):
 async def test_isolation_cannot_adjust_other_household_batch(client: AsyncClient, auth, other_auth, batch_id):
     resp = await client.post(f"/batches/{batch_id}/adjust", json={"delta": -1}, headers=other_auth)
     assert resp.status_code == 404
+
+
+async def test_isolation_cannot_update_other_household_batch(
+    client: AsyncClient, auth, other_auth, batch_id
+):
+    resp = await client.patch(
+        f"/batches/{batch_id}", json={"quantity": 99}, headers=other_auth
+    )
+    assert resp.status_code == 404
+
+
+async def test_isolation_cannot_delete_other_household_batch(
+    client: AsyncClient, auth, other_auth, batch_id
+):
+    resp = await client.delete(f"/batches/{batch_id}", headers=other_auth)
+    assert resp.status_code == 404
+
+
+async def test_isolation_cannot_list_other_household_batches(
+    client: AsyncClient, auth, other_auth, item_id, batch_id
+):
+    resp = await client.get(f"/items/{item_id}/batches", headers=other_auth)
+    assert resp.status_code == 404
