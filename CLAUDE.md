@@ -122,6 +122,14 @@ _session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_com
 
 Import `SQLAlchemyUserDatabase` directly from `fastapi_users_db_sqlalchemy`, not `fastapi_users.db`. The re-export in `fastapi_users.db` uses a `try/except` block that Pylance cannot statically trace, causing false unknown-symbol errors.
 
+## Coding workflow
+
+When implementing a feature or fix:
+
+1. **Plan first** — outline the files to change and the approach, get approval before writing any code.
+2. **One file at a time** — show the diff for one file, then pause and ask before moving to the next.
+3. **Commit at natural boundaries** — prompt to commit after each cohesive unit: a new model, a router/endpoint group, a test file, or a config change. A good boundary is one where a single commit message is possible without using "and".
+
 ## Developer workflow scripts
 
 - `./scripts/create-pr.sh` — opens a PR from the current branch
