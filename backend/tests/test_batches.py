@@ -75,6 +75,36 @@ async def test_update_batch_merges_on_collision(client: AsyncClient, auth, item_
     assert resp.json()["quantity"] == 5
 
 
+async def test_update_batch_expiry_merges_on_collision(client: AsyncClient, auth, item_id):
+    from datetime import date, timedelta
+
+    pantry_id = next(
+        loc["id"] for loc in (await client.get("/locations", headers=auth)).json()
+        if loc["name"] == "Pantry"
+    )
+    expiry_a = str(date.today() + timedelta(days=30))
+    expiry_b = str(date.today() + timedelta(days=60))
+
+    batch_a = (await client.post(
+        f"/items/{item_id}/batches",
+        json={"quantity": 3, "location_id": pantry_id, "expiry_date": expiry_a},
+        headers=auth,
+    )).json()
+    batch_b = (await client.post(
+        f"/items/{item_id}/batches",
+        json={"quantity": 2, "location_id": pantry_id, "expiry_date": expiry_b},
+        headers=auth,
+    )).json()
+
+    # Changing batch B's expiry to match batch A → should merge.
+    resp = await client.patch(
+        f"/batches/{batch_b['id']}", json={"expiry_date": expiry_a}, headers=auth
+    )
+    assert resp.status_code == 200
+    assert resp.json()["id"] == batch_a["id"]
+    assert resp.json()["quantity"] == 5
+
+
 async def test_delete_batch(client, auth, item_id, batch_id):
     resp = await client.delete(f"/batches/{batch_id}", headers=auth)
     assert resp.status_code == 204
