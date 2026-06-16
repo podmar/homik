@@ -148,3 +148,12 @@ async def test_isolation_cannot_delete_other_household_item(
 ):
     resp = await client.delete(f"/items/{item_id}", headers=other_auth)
     assert resp.status_code == 404
+
+
+async def test_isolation_cannot_update_other_household_item(
+    client: AsyncClient, auth, other_auth, item_id
+):
+    resp = await client.patch(
+        f"/items/{item_id}", json={"name": "Stolen"}, headers=other_auth
+    )
+    assert resp.status_code == 404
