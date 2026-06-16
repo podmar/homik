@@ -21,12 +21,26 @@ async def test_create_batch(client, auth, item_id):
 
 
 async def test_create_batch_merges_on_collision(client: AsyncClient, auth, item_id):
-    # Two POSTs with no explicit location or expiry resolve to the same defaults,
-    # so the second should merge into the first rather than creating a duplicate.
-    first = await client.post(f"/items/{item_id}/batches", json={"quantity": 3}, headers=auth)
+    from datetime import date, timedelta
+
+    pantry_id = next(
+        loc["id"] for loc in (await client.get("/locations", headers=auth)).json()
+        if loc["name"] == "Pantry"
+    )
+    expiry = str(date.today() + timedelta(days=365))
+
+    first = await client.post(
+        f"/items/{item_id}/batches",
+        json={"quantity": 3, "location_id": pantry_id, "expiry_date": expiry},
+        headers=auth,
+    )
     assert first.status_code == 201
 
-    second = await client.post(f"/items/{item_id}/batches", json={"quantity": 2}, headers=auth)
+    second = await client.post(
+        f"/items/{item_id}/batches",
+        json={"quantity": 2, "location_id": pantry_id, "expiry_date": expiry},
+        headers=auth,
+    )
     assert second.status_code == 200
     assert second.json()["id"] == first.json()["id"]
     assert second.json()["quantity"] == 5
