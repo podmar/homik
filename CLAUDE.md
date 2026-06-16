@@ -126,8 +126,10 @@ Import `SQLAlchemyUserDatabase` directly from `fastapi_users_db_sqlalchemy`, not
 
 - `./scripts/create-pr.sh` — opens a PR from the current branch
 - `./scripts/fetch-pr-comments.sh` — fetches open PR review comments into `docs/pr-comments.md`
+- `./scripts/run-tests.sh` — runs the test suite and saves output to `docs/test-report.txt`
 - `/pr-description` — generates a PR description and saves to `docs/pr-description.md`
 - `/review-comments` — works through `docs/pr-comments.md` one comment at a time
+- `/fix-test` — works through `docs/test-report.txt` one failure at a time
 - `/til` — updates `docs/til.md` with learnings from the current session
 - `/update-spec` — updates `docs/spec.md` with project-specific API and data model decisions
 
