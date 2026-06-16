@@ -16,10 +16,16 @@ import app.database as _db
 
 class _Env(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    database_url: SecretStr
     test_database_url: SecretStr
 
 
 _env = _Env()  # type: ignore[call-arg]
+
+if _env.database_url.get_secret_value() == _env.test_database_url.get_secret_value():
+    raise RuntimeError(
+        "TEST_DATABASE_URL must differ from DATABASE_URL — tests TRUNCATE all tables."
+    )
 
 # Replace the app's engine and session factory with test-DB equivalents before
 # app.main is imported. All subsequent imports see the patched module globals,
@@ -33,7 +39,9 @@ _test_engine = create_async_engine(
     poolclass=NullPool,
 )
 _db.engine = _test_engine
-_db._session_factory = async_sessionmaker(_test_engine, class_=AsyncSession, expire_on_commit=False)
+_db._session_factory = async_sessionmaker(
+    _test_engine, class_=AsyncSession, expire_on_commit=False
+)
 
 from app.main import app  # noqa: E402 — must follow the patch above
 
@@ -62,15 +70,20 @@ async def truncate_tables() -> None:
 
 @pytest.fixture
 async def client() -> AsyncGenerator[AsyncClient]:
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
         yield ac
 
 
 @pytest.fixture
 async def auth(client: AsyncClient) -> dict[str, str]:
-    await client.post("/auth/register", json={"email": "alice@test.com", "password": "testpass123"})
+    await client.post(
+        "/auth/register", json={"email": "alice@test.com", "password": "testpass123"}
+    )
     resp = await client.post(
-        "/auth/jwt/login", data={"username": "alice@test.com", "password": "testpass123"}
+        "/auth/jwt/login",
+        data={"username": "alice@test.com", "password": "testpass123"},
     )
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
@@ -78,7 +91,9 @@ async def auth(client: AsyncClient) -> dict[str, str]:
 @pytest.fixture
 async def other_auth(client: AsyncClient) -> dict[str, str]:
     """Second user in a separate household — for isolation tests."""
-    await client.post("/auth/register", json={"email": "bob@test.com", "password": "testpass123"})
+    await client.post(
+        "/auth/register", json={"email": "bob@test.com", "password": "testpass123"}
+    )
     resp = await client.post(
         "/auth/jwt/login", data={"username": "bob@test.com", "password": "testpass123"}
     )
