@@ -71,6 +71,7 @@
 - **`uv run` via a subshell, not a direct binary path.** Running `(cd backend && uv run ruff check .)` ensures `uv` resolves the correct project virtualenv without hardcoding `.venv/bin/ruff` or assuming anything about PATH. Works identically on any machine with `uv` installed.
 - **`gh pr edit --body "$(cat docs/pr-description.md)"`** updates the PR description from a local file. Combine with a shell function (not an alias) so the `$()` expands at call time, not at definition time: `update-pr() { gh pr edit --body "$(cat docs/pr-description.md)"; }` in `~/.zshrc`.
 - **Shell functions vs aliases for subshell expansion.** A plain `alias` expands `$()` when the alias is defined, capturing the value at shell startup. A function re-evaluates `$()` every time it's called — necessary whenever the substitution reads a file that changes between calls.
+- **`tee -a` writes to a file and prints to the terminal at the same time.** `command | tee file` takes the output of `command`, writes it to `file`, and also prints it live to the terminal. Think of it as a T-junction in a pipe: one stream in, two streams out. The `-a` flag means append — without it, `tee` overwrites from the beginning, erasing anything written before the pipe (e.g. a timestamp header).
 ---
 
 ## Claude Code Skill Design
@@ -82,10 +83,37 @@
 - **Explicit "nothing qualifies" instruction prevents invented entries.** Without it, Claude will pad output to justify running. One line eliminates the whole failure mode.
 - **Pacing depends on task shape.** Iterative skills (fix-lint, review-comments) pause after each item. Single-output skills (til, update-spec, pr-description) follow gather → draft → confirm → write. Match the pattern to the task.
 - **CLAUDE.md is ambient; `.claude/prompts/` is on-demand.** CLAUDE.md loads every session — use it for things needed most sessions. For occasional tasks (e.g. writing a new skill), a prompt template in `.claude/prompts/` costs nothing when not in use and the user pastes it when needed. Frequency of use is the deciding factor.
+- **Self-review in the same pass is unreliable for quality judgements.** Claude is anchored to what it just produced and confirms rather than critiques. For quality/correctness, end the skill by prompting the user to send a follow-up message. A self-check step is valid for completeness against a concrete checklist (e.g. "confirm every failure was addressed") — verification, not judgement.
+
+---
+
+## Testing
+
+- **`NullPool` prevents "Future attached to a different loop" with per-test event loops.** A connection to Postgres is a TCP connection — opening one involves a handshake and auth, so SQLAlchemy keeps a pool of open connections ready to reuse. Each retained connection holds internal `Future` objects (promises of async results) bound to the event loop that created them. An event loop is Python's async scheduler — the thing that drives `await`. pytest-asyncio creates a fresh event loop for each `async def test_` function. When the next test tries to reuse a pooled connection from the previous loop, Python sees the connection's Futures belong to a different loop and raises `"Future attached to a different loop"`. `NullPool` disables pooling entirely: every query opens a fresh TCP connection, uses it, closes it. Nothing is retained, nothing is bound to a stale loop. The cost is a new connection per operation — which is why tests against a remote DB like Neon are slow. This is a tool mismatch: SQLAlchemy's pool assumes one long-lived loop (designed for servers); pytest-asyncio creates a new loop per test (designed for isolation). Each default is sensible in its own domain — they just didn't anticipate each other. `NullPool` opts out of the SQLAlchemy assumption to make both work together.
+
+- **`asyncio.run()` is the right pattern for session-scoped async setup with NullPool.** A session-scoped async pytest fixture needs a shared event loop, but per-test NullPool means there isn't one. Wrapping the setup in `asyncio.run()` creates and immediately closes its own isolated loop — no connections retained, compatible with the per-test loop pattern.
+
+- **TRUNCATE is orders of magnitude faster than DROP/CREATE for per-test isolation.** DDL (`drop_all`/`create_all`) makes Postgres rebuild schema structure on every call. `TRUNCATE ... RESTART IDENTITY CASCADE` just deletes rows — DML, not DDL. Move DDL to a session-scoped fixture (runs once), TRUNCATE per test.
+
+- **Guard `TEST_DATABASE_URL != DATABASE_URL` at import time.** A per-test TRUNCATE against production is catastrophic. Read both URLs via the settings class and raise `RuntimeError` at module import — fails before any connection is made.
 
 ---
 
 ## Session Log
+
+### 2026-06-16 — Integration test suite + test tooling (PR: feat/test)
+
+Built: 43 integration tests across all resources, `run-tests.sh`, `/fix-test` skill, batch PATCH autoflush bug fix.
+
+Key learnings:
+- `NullPool` required with pytest-asyncio: per-test event loops make pooled connections invalid across tests
+- `asyncio.run()` for session-scoped DDL: creates/closes its own loop, compatible with per-test NullPool pattern
+- TRUNCATE per test vs DROP/CREATE: DML vs DDL — same isolation, dramatically faster
+- Safety guard: `TEST_DATABASE_URL == DATABASE_URL` check at import time prevents catastrophic truncation
+- Self-review in same pass is anchored — use follow-up message for quality review, checklist step only for completeness
+- `tee -a`: live output + file write simultaneously without overwriting prior lines
+
+---
 
 ### 2026-06-11 — TIL/spec boundary + skill design (PR: chore/til-spec-split)
 
