@@ -70,6 +70,26 @@ async def test_duplicate_barcode_returns_existing_with_200(client: AsyncClient, 
     assert second.json()["id"] == first.json()["id"]
 
 
+async def test_duplicate_barcode_different_households_allowed(
+    client: AsyncClient, auth, other_auth
+):
+    first = await client.post(
+        "/items",
+        json={"name": "Milk", "barcode": "1234567890123", "unit": "litre"},
+        headers=auth,
+    )
+    assert first.status_code == 201
+
+    # Same barcode, different household — should create a separate item.
+    second = await client.post(
+        "/items",
+        json={"name": "Milk", "barcode": "1234567890123", "unit": "litre"},
+        headers=other_auth,
+    )
+    assert second.status_code == 201
+    assert second.json()["id"] != first.json()["id"]
+
+
 async def test_delete_item_cascades_batches(client: AsyncClient, auth, item_id):
     await client.post(f"/items/{item_id}/batches", json={"quantity": 3}, headers=auth)
     await client.delete(f"/items/{item_id}", headers=auth)
