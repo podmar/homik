@@ -61,7 +61,7 @@ Frontend setup instructions coming once scaffolded.
 
 ## Running tests
 
-Tests run against a local Postgres container. You'll need Docker installed and the daemon running.
+Tests run against a local Postgres container. You'll need Docker installed and the daemon running. The container binds to port 5432.
 
 ```bash
 ./scripts/run-tests.sh   # starts the container if needed, then runs the full suite
