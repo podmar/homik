@@ -157,3 +157,15 @@ async def test_isolation_cannot_update_other_household_item(
         f"/items/{item_id}", json={"name": "Stolen"}, headers=other_auth
     )
     assert resp.status_code == 404
+
+
+async def test_isolation_cannot_read_single_other_household_item(
+    client: AsyncClient, auth, other_auth, item_id
+):
+    resp = await client.get(f"/items/{item_id}", headers=other_auth)
+    assert resp.status_code == 404
+
+
+async def test_unauthenticated_returns_401(client: AsyncClient):
+    resp = await client.get("/items")
+    assert resp.status_code == 401

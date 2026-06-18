@@ -16,6 +16,7 @@
 - **Query parameters are implicit.** Any function parameter that isn't a path param, a Pydantic model, or a `Depends` is automatically treated as a query parameter.
 - **`Query(ge=1)`** adds server-side validation to query params. FastAPI returns 422 automatically if validation fails — no manual check needed.
 - **Router without prefix** (`APIRouter(tags=["batches"])`) is valid when your endpoints span multiple URL patterns. Batches use both `/items/{id}/batches` and `/batches/{id}`, so no single prefix fits.
+- **fastapi-users login uses `username`, not `email`, as the form field name** — it follows the OAuth2 password flow spec, which mandates `username`. The value is the user's email; only the field name differs. Login requests must use `data=` (form encoding), not `json=`.
 
 ---
 
@@ -98,9 +99,17 @@
 
 - **Guard `TEST_DATABASE_URL != DATABASE_URL` at import time.** A per-test TRUNCATE against production is catastrophic. Read both URLs via the settings class and raise `RuntimeError` at module import — fails before any connection is made.
 
+- **`filterwarnings` in `pyproject.toml` scopes warning suppression to a specific package** — `"ignore::DeprecationWarning:fastapi_users_db_sqlalchemy"` suppresses only that library's warnings without risking hiding your own. Useful when a dependency emits unavoidable noise on every test run.
+
 ---
 
 ## Session Log
+
+### 2026-06-18 — Auth tests, 401 coverage, and test suite gap analysis
+
+Built: `test_auth.py`, 401 test per resource, `/expiring` boundary test, `GET /items/{id}` isolation test.
+
+---
 
 ### 2026-06-18 — Local Docker Postgres for tests
 
