@@ -59,3 +59,17 @@ homik/
 See [backend/README.md](backend/README.md) to run the API locally.
 Frontend setup instructions coming once scaffolded.
 
+## Running tests
+
+Tests run against a local Postgres container. You'll need Docker installed and the daemon running. The container binds to port 5432.
+
+```bash
+./scripts/run-tests.sh   # starts the container if needed, then runs the full suite
+```
+
+The container stays running after the script finishes — useful when iterating on tests. Stop it when you're done for the day:
+
+```bash
+docker compose down
+```
+

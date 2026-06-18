@@ -67,6 +67,7 @@
 
 ## Developer Tooling
 
+- **`until docker compose exec -T db pg_isready -U postgres -q; do sleep 1; done`** waits for Postgres to accept connections before running tests. `-T` disables TTY (teletypewriter) allocation — by default `docker compose exec` expects an interactive terminal session; `-T` tells it there's no human attached, which is required in scripts and CI. Without the wait, pytest starts before the container is ready and connections fail immediately.
 - **`set -uo pipefail` without `-e` for lint scripts.** `-e` exits immediately on any non-zero exit code, which would kill the script before capturing lint output — lint failures are the expected case. Drop `-e` and capture output with `|| true` so both tools always run regardless of result.
 - **`uv run` via a subshell, not a direct binary path.** Running `(cd backend && uv run ruff check .)` ensures `uv` resolves the correct project virtualenv without hardcoding `.venv/bin/ruff` or assuming anything about PATH. Works identically on any machine with `uv` installed.
 - **`gh pr edit --body "$(cat docs/pr-description.md)"`** updates the PR description from a local file. Combine with a shell function (not an alias) so the `$()` expands at call time, not at definition time: `update-pr() { gh pr edit --body "$(cat docs/pr-description.md)"; }` in `~/.zshrc`.
@@ -100,6 +101,16 @@
 ---
 
 ## Session Log
+
+### 2026-06-18 — Local Docker Postgres for tests
+
+Built: `docker-compose.yml`, `run-tests.sh` updated to start and wait for the container automatically.
+
+Key learnings:
+- `pg_isready` in an `until` loop — reliable readiness wait; `-T` flag required because scripts have no interactive terminal
+- Container left running between runs by design — stopping per run re-incurs the startup cost and defeats the speed gain
+
+---
 
 ### 2026-06-16 — Integration test suite + test tooling (PR: feat/test)
 
