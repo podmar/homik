@@ -200,6 +200,29 @@ async def test_expiring(client: AsyncClient, auth, item_id):
     assert not_expiring not in expiry_dates
 
 
+async def test_expiring_boundary(client: AsyncClient, auth, item_id):
+    from datetime import date, timedelta
+
+    cutoff = str(date.today() + timedelta(days=7))
+    just_outside = str(date.today() + timedelta(days=8))
+
+    await client.post(
+        f"/items/{item_id}/batches",
+        json={"quantity": 1, "expiry_date": cutoff},
+        headers=auth,
+    )
+    await client.post(
+        f"/items/{item_id}/batches",
+        json={"quantity": 1, "expiry_date": just_outside},
+        headers=auth,
+    )
+
+    resp = await client.get("/expiring?days=7", headers=auth)
+    expiry_dates = [b["expiry_date"] for b in resp.json()]
+    assert cutoff in expiry_dates
+    assert just_outside not in expiry_dates
+
+
 async def test_expiring_isolation(client: AsyncClient, auth, other_auth):
     from datetime import date, timedelta
 
