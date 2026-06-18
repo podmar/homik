@@ -73,6 +73,11 @@ venv = ".venv"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+filterwarnings = [
+    # fastapi-users-db-sqlalchemy uses SQLAlchemy's session.execute() internally;
+    # this is their code, not ours, and the warning is noise in every test run.
+    "ignore::DeprecationWarning:fastapi_users_db_sqlalchemy",
+]
 
 [dependency-groups]
 dev = [
