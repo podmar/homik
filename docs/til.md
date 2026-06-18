@@ -97,8 +97,9 @@
 
 - **TRUNCATE is orders of magnitude faster than DROP/CREATE for per-test isolation.** DDL (`drop_all`/`create_all`) makes Postgres rebuild schema structure on every call. `TRUNCATE ... RESTART IDENTITY CASCADE` just deletes rows — DML, not DDL. Move DDL to a session-scoped fixture (runs once), TRUNCATE per test.
 
-- **Guard `TEST_DATABASE_URL != DATABASE_URL` at import time.**
-- **`filterwarnings` in `pyproject.toml` scopes warning suppression to a specific package** — `"ignore::DeprecationWarning:fastapi_users_db_sqlalchemy"` suppresses only that library's warnings without risking hiding your own. Useful when a dependency emits unavoidable noise on every test run. A per-test TRUNCATE against production is catastrophic. Read both URLs via the settings class and raise `RuntimeError` at module import — fails before any connection is made.
+- **Guard `TEST_DATABASE_URL != DATABASE_URL` at import time.** A per-test TRUNCATE against production is catastrophic. Read both URLs via the settings class and raise `RuntimeError` at module import — fails before any connection is made.
+
+- **`filterwarnings` in `pyproject.toml` scopes warning suppression to a specific package** — `"ignore::DeprecationWarning:fastapi_users_db_sqlalchemy"` suppresses only that library's warnings without risking hiding your own. Useful when a dependency emits unavoidable noise on every test run.
 
 ---
 
